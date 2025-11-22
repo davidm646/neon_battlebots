@@ -45,6 +45,19 @@ export const DocsCard: React.FC = () => {
             </section>
 
             <section>
+              <h3 className="text-cyan-400 font-bold mb-1">Heat System</h3>
+              <p className="text-slate-400 mb-2">
+                Firing generates <span className="text-orange-400">20 Heat</span>. Max heat is <span className="text-red-400">100</span>.
+              </p>
+              <ul className="list-disc list-inside text-[10px] text-slate-400 space-y-1">
+                <li>Heat decays at 1 per frame.</li>
+                <li>If Heat >= 100, gun <span className="text-red-500 font-bold">JAMS</span>.</li>
+                <li>You cannot fire until Heat drops back to 0.</li>
+                <li>Use <code className="text-cyan-400">CMP HEAT 80</code> to manage temp.</li>
+              </ul>
+            </section>
+
+            <section>
               <h3 className="text-cyan-400 font-bold mb-1">Compare & Jump</h3>
               <p className="text-slate-400 mb-2">
                 Conditional jumps depend on the last <code className="text-cyan-400">CMP</code> instruction.
@@ -56,13 +69,6 @@ JGT ATTACK     ; Jumps ONLY if radar > 0
 JEQ PATROL     ; Jumps ONLY if radar == 0
                 </pre>
               </div>
-            </section>
-
-            <section>
-              <h3 className="text-cyan-400 font-bold mb-1">Variables</h3>
-              <p className="text-slate-400">
-                Any word not in the Register list (e.g., <span className="text-purple-400">aim</span>, <span className="text-purple-400">state</span>) is automatically created as a variable (init 0).
-              </p>
             </section>
           </div>
         )}
@@ -142,6 +148,7 @@ JEQ PATROL     ; Jumps ONLY if radar == 0
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { name: 'RADAR', d: 'Last Scan Dist' },
+                    { name: 'HEAT', d: 'Gun Heat 0-100' },
                     { name: 'X', d: 'Position X' },
                     { name: 'Y', d: 'Position Y' },
                     { name: 'HEALTH', d: 'Armor' },

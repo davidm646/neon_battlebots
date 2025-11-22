@@ -9,7 +9,7 @@ export class VM {
     
     // 1. Initialize System Registers (Read/Write & Read-Only)
     // These are the ONLY "official" registers.
-    const systemRegs = ['X', 'Y', 'SPEED', 'ANGLE', 'TURRET', 'SHOOT', 'RADAR', 'TIME', 'HEALTH'];
+    const systemRegs = ['X', 'Y', 'SPEED', 'ANGLE', 'TURRET', 'SHOOT', 'RADAR', 'HEAT', 'TIME', 'HEALTH'];
     systemRegs.forEach(r => regs.set(r, 0));
 
     // 2. Dynamically scan program for User Variables
@@ -35,6 +35,8 @@ export class VM {
     return {
       id, color, x, y, angle: 0, speed: 0, turretAngle: 0,
       health: 100, energy: 100, radius: 20,
+      heat: 0,
+      overheated: false,
       registers: regs,
       pc: 0,
       program,
@@ -53,6 +55,7 @@ export class VM {
     bot.registers.set('X', Math.floor(bot.x));
     bot.registers.set('Y', Math.floor(bot.y));
     bot.registers.set('HEALTH', Math.floor(bot.health));
+    bot.registers.set('HEAT', Math.floor(bot.heat));
     
     // Ensure sensors are up to date before code execution
     // RADAR is updated by SCAN command, but we sync the last result just in case

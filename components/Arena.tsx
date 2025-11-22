@@ -72,11 +72,27 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, con
         ctx.save();
         ctx.translate(bot.x, bot.y);
         
+        // Bars Container
         // Health Bar
         ctx.fillStyle = 'red';
-        ctx.fillRect(-20, -35, 40, 5);
+        ctx.fillRect(-20, -40, 40, 4);
         ctx.fillStyle = '#22c55e';
-        ctx.fillRect(-20, -35, 40 * (bot.health / 100), 5);
+        ctx.fillRect(-20, -40, 40 * (bot.health / 100), 4);
+
+        // Heat Bar
+        ctx.fillStyle = '#334155'; // Bg
+        ctx.fillRect(-20, -35, 40, 3);
+        // Color shift from yellow to red based on heat
+        ctx.fillStyle = bot.overheated ? '#ef4444' : '#f59e0b';
+        ctx.fillRect(-20, -35, 40 * (bot.heat / 100), 3);
+
+        // Overheat Indicator
+        if (bot.overheated) {
+           ctx.font = 'bold 10px monospace';
+           ctx.fillStyle = '#ef4444';
+           ctx.textAlign = 'center';
+           ctx.fillText('JAMMED!', 0, -45);
+        }
 
         // Bot Body
         ctx.rotate((bot.angle * Math.PI) / 180);
@@ -108,7 +124,7 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, con
         ctx.translate(bot.x, bot.y);
         ctx.rotate((bot.turretAngle * Math.PI) / 180);
         
-        ctx.fillStyle = '#94a3b8';
+        ctx.fillStyle = bot.overheated ? '#7f1d1d' : '#94a3b8'; // Dark red if jammed
         ctx.fillRect(0, -3, 25, 6); // Barrel
         ctx.beginPath();
         ctx.arc(0, 0, 10, 0, Math.PI * 2);

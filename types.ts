@@ -31,6 +31,10 @@ export interface RobotState {
   energy: number;
   radius: number;
   
+  // Heat System
+  heat: number;        // 0-100
+  overheated: boolean; // If true, cannot fire until heat drops to 0
+  
   // VM State
   registers: Map<string, number>;
   pc: number; // Program Counter

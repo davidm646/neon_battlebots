@@ -4,7 +4,7 @@ import { CodeEditor } from './components/CodeEditor';
 import { ControlPanel } from './components/ControlPanel';
 import { DebuggerPanel } from './components/DebuggerPanel';
 import { GameStatus, RobotState, Projectile, Explosion } from './types';
-import { ARENA_WIDTH, ARENA_HEIGHT, DEFAULT_BOT_SCRIPT, TARGET_BOT_SCRIPT, ROBOT_RADIUS, PROJECTILE_SPEED, PROJECTILE_RADIUS, DAMAGE_PER_SHOT } from './constants';
+import { ARENA_WIDTH, ARENA_HEIGHT, DEFAULT_BOT_SCRIPT, TARGET_BOT_SCRIPT, ROBOT_RADIUS, PROJECTILE_SPEED, PROJECTILE_RADIUS, DAMAGE_PER_SHOT, HEAT_PER_SHOT, HEAT_DECAY, MAX_HEAT } from './constants';
 import { VM } from './services/vm';
 import { Compiler } from './services/compiler';
 
@@ -14,6 +14,7 @@ import { Compiler } from './services/compiler';
 export default function App() {
   // User Code
   const [userCode, setUserCode] = useState(DEFAULT_BOT_SCRIPT);
+  const [scriptName, setScriptName] = useState('KillerBot_v1');
   
   // Game State
   const [status, setStatus] = useState<GameStatus>(GameStatus.STOPPED);
@@ -88,6 +89,16 @@ export default function App() {
     currentBots.forEach(bot => {
       if (bot.health <= 0) return;
 
+      // Heat Decay
+      if (bot.heat > 0) {
+        bot.heat = Math.max(0, bot.heat - HEAT_DECAY);
+      }
+      
+      // Recover from Overheat
+      if (bot.overheated && bot.heat <= 0) {
+        bot.overheated = false;
+      }
+
       // Execute VM
       VM.step(bot, currentBots, cycles);
 
@@ -102,18 +113,28 @@ export default function App() {
 
       // Firing Logic
       if (bot.registers.get('SHOOT') === 1) {
-         // Add projectile
-         const pRad = (bot.turretAngle * Math.PI) / 180;
-         currentProjs.push({
-           id: Math.random().toString(),
-           ownerId: bot.id,
-           x: bot.x + Math.cos(pRad) * 25,
-           y: bot.y + Math.sin(pRad) * 25,
-           vx: Math.cos(pRad) * PROJECTILE_SPEED,
-           vy: Math.sin(pRad) * PROJECTILE_SPEED,
-           damage: DAMAGE_PER_SHOT,
-           active: true
-         });
+         // Check if Jammed
+         if (!bot.overheated) {
+             // Fire
+             const pRad = (bot.turretAngle * Math.PI) / 180;
+             currentProjs.push({
+               id: Math.random().toString(),
+               ownerId: bot.id,
+               x: bot.x + Math.cos(pRad) * 25,
+               y: bot.y + Math.sin(pRad) * 25,
+               vx: Math.cos(pRad) * PROJECTILE_SPEED,
+               vy: Math.sin(pRad) * PROJECTILE_SPEED,
+               damage: DAMAGE_PER_SHOT,
+               active: true
+             });
+
+             // Apply Heat
+             bot.heat += HEAT_PER_SHOT;
+             if (bot.heat >= MAX_HEAT) {
+               bot.heat = MAX_HEAT;
+               bot.overheated = true;
+             }
+         }
       }
 
       // CRITICAL: Reset SHOOT register to 0 after processing.
@@ -241,7 +262,11 @@ export default function App() {
         {/* Left: Editor & Debugger */}
         <div ref={colRef} className="lg:col-span-3 flex flex-col h-full min-h-0">
            <div style={{ height: `${editorHeightPercent}%` }} className="shrink-0 pb-1">
-              <CodeEditor code={userCode} onChange={setUserCode} />
+              <CodeEditor 
+                code={userCode} 
+                onChange={setUserCode} 
+                botName={scriptName}
+              />
            </div>
            
            {/* Splitter */}
@@ -292,7 +317,7 @@ export default function App() {
             <div className="bg-slate-900/80 border border-slate-700 p-2 rounded text-xs font-mono shadow-lg">
               <div className="text-cyan-400 font-bold mb-1">PLAYER</div>
               <div>HP: {Math.max(0, Math.floor(bots[0]?.health || 0))}</div>
-              <div>SPD: {bots[0]?.speed || 0}</div>
+              <div>HEAT: {Math.floor(bots[0]?.heat || 0)}</div>
               <div>RADAR: {bots[0]?.lastScanResult}</div>
             </div>
             <div className="bg-slate-900/80 border border-slate-700 p-2 rounded text-xs font-mono shadow-lg">
@@ -307,6 +332,8 @@ export default function App() {
           <ControlPanel 
             status={status} 
             currentCode={userCode}
+            scriptName={scriptName}
+            onScriptNameChange={setScriptName}
             onPlay={handlePlay} 
             onStop={handleStop} 
             onReset={handleReset}

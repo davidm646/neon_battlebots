@@ -3,14 +3,15 @@ import React from 'react';
 interface CodeEditorProps {
   code: string;
   onChange: (val: string) => void;
+  botName: string;
 }
 
-export const CodeEditor: React.FC<CodeEditorProps> = ({ code, onChange }) => {
+export const CodeEditor: React.FC<CodeEditorProps> = ({ code, onChange, botName }) => {
   return (
     <div className="relative h-full w-full flex flex-col bg-slate-900 rounded-lg overflow-hidden border border-slate-700">
       <div className="bg-slate-800 px-4 py-2 text-xs text-slate-400 font-mono flex justify-between items-center">
         <span>PROGRAM MEMORY</span>
-        <span className="bg-green-900 text-green-300 px-2 py-0.5 rounded">ASM-BOT-V1</span>
+        <span className="bg-green-900 text-green-300 px-2 py-0.5 rounded uppercase">{botName || 'UNTITLED'}</span>
       </div>
       <textarea
         value={code}

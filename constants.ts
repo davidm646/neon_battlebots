@@ -8,6 +8,11 @@ export const MAX_HEALTH = 100;
 export const DAMAGE_PER_SHOT = 10;
 export const SCAN_RANGE = 900; // Infinite basically
 
+// Heat System Balance
+export const MAX_HEAT = 100;
+export const HEAT_PER_SHOT = 20;
+export const HEAT_DECAY = 1.0; // Per Frame
+
 export const DEFAULT_OPCODE_HELP = `
 Language: Assembly-like. Case insensitive.
 5 Instructions executed per 60fps frame.
@@ -29,7 +34,7 @@ System Registers (Controls):
 SPEED (0-10), ANGLE (0-360), TURRET (0-360), SHOOT (0/1)
 
 System Registers (Sensors):
-RADAR, X, Y, HEALTH, TIME
+RADAR, HEAT, X, Y, HEALTH, TIME
 
 Aliases:
 AIM x  -> SET TURRET x
@@ -39,25 +44,32 @@ FIRE 1 -> SET SHOOT 1
 `;
 
 export const DEFAULT_BOT_SCRIPT = `
-; Simple Sentry Bot
+; Heat-Aware Sentry
 START:
-  SET aim 0      ; 'aim' is a variable
-  SET speed 0    ; stop moving
+  SET aim 0
 
 LOOP:
-  ADD aim 10     ; Increment variable
-  AIM aim        ; Set actual turret (alias for SET TURRET aim)
+  ADD aim 10
+  AIM aim
   
-  SCAN aim       ; Scan at 'aim' angle
-  CMP radar 0    ; Check sensor (0=nothing found)
-  JGT ATTACK     ; If > 0, found enemy!
+  ; Heat Management
+  CMP heat 80    ; Is gun too hot?
+  JGT COOL_DOWN  ; If so, wait
   
-  JMP LOOP       ; Keep scanning
+  SCAN aim
+  CMP radar 0
+  JGT ATTACK
+  
+  JMP LOOP
 
 ATTACK:
-  FIRE 1         ; Shoot once
-  ADD aim 5      ; Lead target slightly
-  JMP LOOP       ; Resume
+  FIRE 1
+  ADD aim 5
+  JMP LOOP
+
+COOL_DOWN:
+  SET speed 5    ; Evasive maneuvers
+  JMP LOOP
 `;
 
 export const TARGET_BOT_SCRIPT = `

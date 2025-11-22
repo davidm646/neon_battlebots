@@ -12,7 +12,7 @@ interface DebuggerPanelProps {
 }
 
 const SYSTEM_REGISTERS = new Set([
-  'SPEED', 'ANGLE', 'TURRET', 'SHOOT', 'RADAR', 'X', 'Y', 'HEALTH', 'TIME'
+  'SPEED', 'ANGLE', 'TURRET', 'SHOOT', 'RADAR', 'X', 'Y', 'HEALTH', 'TIME', 'HEAT'
 ]);
 
 // Helper to categorize registers
@@ -154,7 +154,7 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
           {/* Context Info */}
           <div className="mt-auto bg-slate-900/50 p-2 rounded border border-slate-800/50 text-[10px] font-mono text-slate-400">
              <div>FLAGS: <span className={bot.cmpFlag === 0 ? 'text-white' : ''}>EQ</span> • <span className={bot.cmpFlag > 0 ? 'text-white' : ''}>GT</span> • <span className={bot.cmpFlag < 0 ? 'text-white' : ''}>LT</span></div>
-             <div className="mt-1">COOLDOWNS: SCN[{Math.max(0, bot.scanCooldown)}] SHT[{Math.max(0, bot.shootCooldown)}]</div>
+             <div className="mt-1">HEAT: {bot.heat}/100 {bot.overheated ? <span className="text-red-500 font-bold">JAMMED</span> : ''}</div>
           </div>
         </div>
 
@@ -168,7 +168,7 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
                 {sys.map(({ key, val }) => (
                   <div key={key} className="flex justify-between items-center bg-slate-800 px-1.5 py-1 rounded border border-slate-700/50 hover:border-slate-500 transition-colors">
                     <span className="text-[9px] font-bold text-pink-400">{key}</span>
-                    <span className="text-[9px] font-mono text-slate-200">{val}</span>
+                    <span className={`text-[9px] font-mono ${key === 'HEAT' && val > 80 ? 'text-red-400 font-bold' : 'text-slate-200'}`}>{val}</span>
                   </div>
                 ))}
               </div>

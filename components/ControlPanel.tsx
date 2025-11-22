@@ -6,6 +6,8 @@ import { DocsCard } from './DocsCard';
 interface ControlPanelProps {
   status: GameStatus;
   currentCode: string;
+  scriptName: string;
+  onScriptNameChange: (name: string) => void;
   onPlay: () => void;
   onStop: () => void;
   onReset: () => void;
@@ -15,6 +17,8 @@ interface ControlPanelProps {
 export const ControlPanel: React.FC<ControlPanelProps> = ({ 
   status, 
   currentCode,
+  scriptName,
+  onScriptNameChange,
   onPlay, 
   onStop, 
   onReset,
@@ -25,7 +29,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
 
   // File State
-  const [scriptName, setScriptName] = useState('KillerBot_v1');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleGenerate = async () => {
@@ -67,7 +70,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       if (typeof event.target?.result === 'string') {
         onLoadScript(event.target.result);
         // Update name to match file (strip extension)
-        setScriptName(file.name.replace(/\.nbb$/i, '').replace(/\.txt$/i, ''));
+        onScriptNameChange(file.name.replace(/\.nbb$/i, '').replace(/\.txt$/i, ''));
       }
     };
     reader.readAsText(file);
@@ -122,7 +125,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               <input 
                 type="text" 
                 value={scriptName}
-                onChange={(e) => setScriptName(e.target.value)}
+                onChange={(e) => onScriptNameChange(e.target.value)}
                 placeholder="Bot Name..." 
                 className="flex-1 bg-slate-900 border border-slate-600 rounded px-3 py-1 text-xs text-white placeholder-slate-500 outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition"
               />
