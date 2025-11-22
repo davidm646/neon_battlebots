@@ -13,6 +13,19 @@ export const MAX_HEAT = 100;
 export const HEAT_PER_SHOT = 20;
 export const HEAT_DECAY = 1.0; // Per Frame
 
+export const BOT_PALETTE = [
+  '#ef4444', // Red
+  '#f97316', // Orange
+  '#f59e0b', // Amber
+  '#84cc16', // Lime
+  '#22c55e', // Green
+  '#06b6d4', // Cyan
+  '#3b82f6', // Blue
+  '#8b5cf6', // Violet
+  '#d946ef', // Fuchsia
+  '#f43f5e', // Rose
+];
+
 export const DEFAULT_OPCODE_HELP = `
 Language: Assembly-like. Case insensitive.
 5 Instructions executed per 60fps frame.
@@ -44,7 +57,7 @@ FIRE 1 -> SET SHOOT 1
 `;
 
 export const DEFAULT_BOT_SCRIPT = `
-; Heat-Aware Sentry
+; Default Sentry
 START:
   SET aim 0
 
@@ -53,8 +66,8 @@ LOOP:
   AIM aim
   
   ; Heat Management
-  CMP heat 80    ; Is gun too hot?
-  JGT COOL_DOWN  ; If so, wait
+  CMP heat 80
+  JGT COOL_DOWN
   
   SCAN aim
   CMP radar 0
@@ -68,7 +81,7 @@ ATTACK:
   JMP LOOP
 
 COOL_DOWN:
-  SET speed 5    ; Evasive maneuvers
+  SET speed 5
   JMP LOOP
 `;
 

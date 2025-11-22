@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { RobotState, GameStatus } from '../types';
 
@@ -49,46 +50,31 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
   const isStopped = gameStatus === GameStatus.STOPPED;
   const isActive = isPaused || isRunning;
 
-  if (!bot) {
-    return (
-      <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 h-full flex items-center justify-center text-slate-600 text-xs font-mono">
-        OFFLINE - START SIMULATION TO DEBUG
-      </div>
-    );
-  }
-
-  // No useMemo here to ensure we get fresh values every render (60fps)
-  const { sys, usr } = categorizeRegisters(bot.registers);
-  const currentInstr = bot.program[bot.pc];
-
-  return (
-    <div className="bg-slate-900 border border-slate-700 rounded-lg flex flex-col h-full shrink-0 shadow-lg">
-      {/* Header & Controls */}
-      <div className="bg-slate-800/80 px-3 py-2 border-b border-slate-700 flex justify-between items-center shrink-0 backdrop-blur-sm">
+  // Header is always visible
+  const renderHeader = () => (
+    <div className="bg-slate-800/80 px-3 py-2 border-b border-slate-700 flex justify-between items-center shrink-0 backdrop-blur-sm">
         <div className="flex items-center gap-3">
           <span className="text-[10px] font-bold text-slate-400 tracking-wider flex items-center gap-2">
             <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-green-500 animate-pulse' : 'bg-slate-600'}`}></span>
             CPU DEBUGGER
           </span>
-          <span className="text-[10px] font-mono text-cyan-500 bg-cyan-950/30 px-1.5 py-0.5 rounded border border-cyan-900/50">
-            PC: {String(bot.pc).padStart(3, '0')}
-          </span>
+          {bot && (
+            <span className="text-[10px] font-mono text-cyan-500 bg-cyan-950/30 px-1.5 py-0.5 rounded border border-cyan-900/50">
+              PC: {String(bot.pc).padStart(3, '0')}
+            </span>
+          )}
         </div>
 
         <div className="flex gap-2">
-           {/* Stopped State Controls */}
            {isStopped && (
-            <>
                <button 
                 onClick={onRun}
                 className="bg-green-600 hover:bg-green-500 text-white text-[10px] font-bold px-2 py-1 rounded border-b-2 border-green-800 active:border-0 active:translate-y-px transition flex items-center gap-1"
               >
                 RUN
               </button>
-            </>
            )}
 
-          {/* Running State Controls */}
           {isRunning && (
             <button 
               onClick={onPause}
@@ -98,7 +84,6 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
             </button>
           )}
 
-          {/* Paused State Controls */}
           {isPaused && (
             <>
               <button 
@@ -116,7 +101,6 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
             </>
           )}
 
-           {/* Always available Reset if not running, or if running/paused */}
            {!isStopped && (
               <button 
                 onClick={onReset}
@@ -127,6 +111,25 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
            )}
         </div>
       </div>
+  );
+
+  if (!bot) {
+    return (
+      <div className="bg-slate-900 border border-slate-700 rounded-lg flex flex-col h-full shrink-0 shadow-lg">
+        {renderHeader()}
+        <div className="flex-1 flex items-center justify-center text-slate-600 text-xs font-mono p-4 text-center">
+          {isStopped ? "SELECT A BOT FROM ROSTER" : "SIMULATION NOT RUNNING"}
+        </div>
+      </div>
+    );
+  }
+
+  const { sys, usr } = categorizeRegisters(bot.registers);
+  const currentInstr = bot.program[bot.pc];
+
+  return (
+    <div className="bg-slate-900 border border-slate-700 rounded-lg flex flex-col h-full shrink-0 shadow-lg">
+      {renderHeader()}
       
       {/* Content Area */}
       <div className="flex-1 flex min-h-0">

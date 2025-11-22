@@ -1,17 +1,18 @@
+
 import React, { useState } from 'react';
 
 export const DocsCard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'basics' | 'commands' | 'registers'>('basics');
 
   return (
-    <div className="bg-slate-800 border border-slate-700 rounded-lg flex flex-col shadow-lg overflow-hidden shrink-0">
+    <div className="bg-slate-800 border border-slate-700 rounded-lg flex flex-col shadow-lg overflow-hidden flex-1 min-h-0">
       {/* Header */}
-      <div className="bg-slate-900/50 px-4 py-2 border-b border-slate-700 flex justify-between items-center">
+      <div className="bg-slate-900/50 px-4 py-2 border-b border-slate-700 flex justify-between items-center shrink-0">
         <h2 className="text-xs font-display font-bold text-slate-300 tracking-wider">MANUAL</h2>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-700 bg-slate-900/30">
+      <div className="flex border-b border-slate-700 bg-slate-900/30 shrink-0">
         {[
           { id: 'basics', label: 'BASICS' },
           { id: 'commands', label: 'CMDS' },
@@ -32,7 +33,7 @@ export const DocsCard: React.FC = () => {
       </div>
 
       {/* Content */}
-      <div className="p-4 text-slate-300 font-mono text-xs leading-relaxed h-96 overflow-y-auto custom-scrollbar bg-slate-900/20">
+      <div className="p-4 text-slate-300 font-mono text-xs leading-relaxed flex-1 overflow-y-auto custom-scrollbar bg-slate-900/20 min-h-0">
         
         {/* BASICS TAB */}
         {activeTab === 'basics' && (

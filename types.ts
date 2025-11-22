@@ -1,3 +1,4 @@
+
 export enum OpCode {
   SET = 'SET',     // SET reg value
   ADD = 'ADD',     // ADD reg value
@@ -17,6 +18,13 @@ export interface Instruction {
   op: OpCode;
   args: string[];
   originalLine?: number;
+}
+
+export interface BotConfig {
+  id: string;
+  name: string;
+  code: string;
+  color: string;
 }
 
 export interface RobotState {

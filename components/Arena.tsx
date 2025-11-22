@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 import { RobotState, Projectile, Explosion, GameConfig, GameStatus } from '../types';
 import { ARENA_WIDTH, ARENA_HEIGHT, ROBOT_RADIUS, SCAN_RANGE } from '../constants';
@@ -8,10 +9,37 @@ interface ArenaProps {
   explosions: Explosion[];
   config: GameConfig;
   status: GameStatus;
+  onBotClick?: (botId: string) => void;
 }
 
-export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, config, status }) => {
+export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, config, status, onBotClick }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Handle Click for Selection
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!onBotClick || !canvasRef.current) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const scaleX = canvasRef.current.width / rect.width;
+    const scaleY = canvasRef.current.height / rect.height;
+    
+    const clickX = (e.clientX - rect.left) * scaleX;
+    const clickY = (e.clientY - rect.top) * scaleY;
+
+    // Check collision with any bot
+    // We iterate backwards to click "top" bots first if they overlap
+    for (let i = bots.length - 1; i >= 0; i--) {
+      const bot = bots[i];
+      const dx = clickX - bot.x;
+      const dy = clickY - bot.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist <= ROBOT_RADIUS * 1.5) { // Generous hit area
+        onBotClick(bot.id);
+        return;
+      }
+    }
+  };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -36,7 +64,7 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, con
       }
 
       // Draw Line of Sight (PAUSED MODE ONLY)
-      if (status === GameStatus.PAUSED) {
+      if (status === GameStatus.PAUSED || status === GameStatus.STOPPED) {
         bots.forEach(bot => {
           if (bot.health <= 0) return;
           
@@ -72,66 +100,82 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, con
         ctx.save();
         ctx.translate(bot.x, bot.y);
         
-        // Bars Container
+        // Bars Container (Unrotated)
         // Health Bar
         ctx.fillStyle = 'red';
-        ctx.fillRect(-20, -40, 40, 4);
+        ctx.fillRect(-20, -45, 40, 4);
         ctx.fillStyle = '#22c55e';
-        ctx.fillRect(-20, -40, 40 * (bot.health / 100), 4);
+        ctx.fillRect(-20, -45, 40 * (bot.health / 100), 4);
 
         // Heat Bar
         ctx.fillStyle = '#334155'; // Bg
-        ctx.fillRect(-20, -35, 40, 3);
+        ctx.fillRect(-20, -40, 40, 3);
         // Color shift from yellow to red based on heat
         ctx.fillStyle = bot.overheated ? '#ef4444' : '#f59e0b';
-        ctx.fillRect(-20, -35, 40 * (bot.heat / 100), 3);
+        ctx.fillRect(-20, -40, 40 * (bot.heat / 100), 3);
 
         // Overheat Indicator
         if (bot.overheated) {
            ctx.font = 'bold 10px monospace';
            ctx.fillStyle = '#ef4444';
            ctx.textAlign = 'center';
-           ctx.fillText('JAMMED!', 0, -45);
+           ctx.fillText('JAMMED!', 0, -50);
         }
 
-        // Bot Body
+        // --- Bot Body (Neon Style) ---
         ctx.rotate((bot.angle * Math.PI) / 180);
         
-        // Glow
-        ctx.shadowBlur = 15;
+        // Glow Effect
+        ctx.shadowBlur = 10;
         ctx.shadowColor = bot.color;
-        
-        ctx.fillStyle = '#334155';
-        ctx.beginPath();
-        ctx.rect(-ROBOT_RADIUS, -ROBOT_RADIUS, ROBOT_RADIUS*2, ROBOT_RADIUS*2);
-        ctx.fill();
+
+        // Chassis (Stroke only for neon look)
+        ctx.fillStyle = '#0f172a'; // Dark fill to cover grid lines
         ctx.strokeStyle = bot.color;
         ctx.lineWidth = 2;
-        ctx.stroke();
         
-        // Direction Indicator
+        const r = ROBOT_RADIUS - 2;
         ctx.beginPath();
-        ctx.moveTo(10, 0);
-        ctx.lineTo(-5, -5);
-        ctx.lineTo(-5, 5);
-        ctx.fillStyle = bot.color;
+        ctx.roundRect(-r, -r, r * 2, r * 2, 4);
         ctx.fill();
+        ctx.stroke();
 
+        // Direction Indicator (Arrow inside chassis)
+        // Points towards positive X (Right)
+        ctx.fillStyle = bot.color;
+        ctx.beginPath();
+        ctx.moveTo(r - 6, 0); // Tip
+        ctx.lineTo(-4, -8);   // Top back
+        ctx.lineTo(0, 0);     // Center notch
+        ctx.lineTo(-4, 8);    // Bottom back
+        ctx.closePath();
+        ctx.fill();
+        
         ctx.restore();
 
-        // Turret (Independent rotation)
+        // --- Turret (Independent rotation) ---
         ctx.save();
         ctx.translate(bot.x, bot.y);
         ctx.rotate((bot.turretAngle * Math.PI) / 180);
         
-        ctx.fillStyle = bot.overheated ? '#7f1d1d' : '#94a3b8'; // Dark red if jammed
-        ctx.fillRect(0, -3, 25, 6); // Barrel
+        ctx.shadowBlur = 5;
+        ctx.shadowColor = bot.overheated ? '#ef4444' : bot.color;
+        
+        // Simple Gun Barrel
+        ctx.strokeStyle = bot.overheated ? '#ef4444' : '#e2e8f0';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.arc(0, 0, 10, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#f8fafc';
+        ctx.moveTo(0, 0);
+        ctx.lineTo(26, 0);
         ctx.stroke();
         
+        // Small Pivot Point
+        ctx.fillStyle = bot.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, 4, 0, Math.PI * 2);
+        ctx.fill();
+
         ctx.restore();
       });
 
@@ -167,7 +211,8 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, con
       ref={canvasRef} 
       width={config.width} 
       height={config.height}
-      className="rounded-lg border-2 border-slate-700 shadow-2xl"
+      onClick={handleCanvasClick}
+      className={`rounded-lg border-2 border-slate-700 shadow-2xl bg-slate-950 ${status !== GameStatus.RUNNING ? 'cursor-pointer' : 'cursor-default'}`}
     />
   );
 };
