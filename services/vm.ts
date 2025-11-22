@@ -39,6 +39,7 @@ export class VM {
       health: 100, energy: 100, radius: 20,
       heat: 0,
       overheated: false,
+      collisionCooldown: 0,
       registers: regs,
       pc: 0,
       program,

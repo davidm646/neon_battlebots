@@ -4,7 +4,8 @@ import { VM } from './vm';
 import { 
   ARENA_WIDTH, ARENA_HEIGHT, ROBOT_RADIUS, PROJECTILE_SPEED, PROJECTILE_RADIUS, 
   DAMAGE_PER_SHOT, HEAT_PER_SHOT, HEAT_DECAY, MAX_HEAT, TURRET_SPEED, 
-  COLLISION_DAMAGE_FACTOR, WALL_DAMAGE_FACTOR, COLLISION_BOUNCE 
+  COLLISION_DAMAGE_FACTOR, WALL_DAMAGE_FACTOR, COLLISION_BOUNCE,
+  COLLISION_DAMAGE_THRESHOLD, COLLISION_COOLDOWN
 } from '../constants';
 
 export class PhysicsEngine {
@@ -24,12 +25,15 @@ export class PhysicsEngine {
     currentBots.forEach(bot => {
       if (bot.health <= 0) return;
 
-      // Heat Decay
+      // Cooldowns
       if (bot.heat > 0) {
         bot.heat = Math.max(0, bot.heat - HEAT_DECAY);
       }
       if (bot.overheated && bot.heat <= 0) {
         bot.overheated = false;
+      }
+      if (bot.collisionCooldown > 0) {
+        bot.collisionCooldown--;
       }
 
       // Execute VM
@@ -107,8 +111,12 @@ export class PhysicsEngine {
        }
 
        if (hitWall && bot.speed > 0) {
-         // Damage based on speed
-         bot.health -= bot.speed * WALL_DAMAGE_FACTOR;
+         // Only take damage if hitting hard and not in cooldown
+         if (bot.speed > COLLISION_DAMAGE_THRESHOLD && bot.collisionCooldown === 0) {
+            bot.health -= bot.speed * WALL_DAMAGE_FACTOR;
+            bot.collisionCooldown = COLLISION_COOLDOWN;
+         }
+         
          // Crash stop/bounce
          bot.speed = Math.floor(bot.speed * COLLISION_BOUNCE);
          bot.registers.set('SPEED', bot.speed); // Update register to reflect physics change
@@ -139,21 +147,36 @@ export class PhysicsEngine {
            other.x += moveX;
            other.y += moveY;
 
-           // 2. Apply Damage based on combined speed (Impact)
-           const impact = (bot.speed + other.speed) * COLLISION_DAMAGE_FACTOR;
-           // Minimum impact damage of 2 just for touching
-           const damage = Math.max(2, impact); 
-           
-           bot.health -= damage;
-           other.health -= damage;
+           // 2. Calculate Impact Vector
+           const v1x = Math.cos(bot.angle * Math.PI / 180) * bot.speed;
+           const v1y = Math.sin(bot.angle * Math.PI / 180) * bot.speed;
+           const v2x = Math.cos(other.angle * Math.PI / 180) * other.speed;
+           const v2y = Math.sin(other.angle * Math.PI / 180) * other.speed;
 
-           // 3. Visuals (Explosion at midpoint)
-           const midX = bot.x + (dx / 2);
-           const midY = bot.y + (dy / 2);
-           currentExplosions.push({
-              id: Math.random().toString(),
-              x: midX, y: midY, radius: 10, maxRadius: 25, life: 1, color: '#cbd5e1' // White/Smoke sparks
-           });
+           const relVx = v1x - v2x;
+           const relVy = v1y - v2y;
+           const impactSpeed = Math.sqrt(relVx * relVx + relVy * relVy);
+
+           // 3. Apply Damage only if impact is significant and not in cooldown
+           if (impactSpeed > COLLISION_DAMAGE_THRESHOLD) {
+              if (bot.collisionCooldown === 0 && other.collisionCooldown === 0) {
+                 const damage = impactSpeed * COLLISION_DAMAGE_FACTOR;
+                 bot.health -= damage;
+                 other.health -= damage;
+                 
+                 // Safety cooldown to prevent "grinding" death
+                 bot.collisionCooldown = COLLISION_COOLDOWN;
+                 other.collisionCooldown = COLLISION_COOLDOWN;
+                 
+                 // Visuals (Explosion at midpoint)
+                 const midX = bot.x + (dx / 2);
+                 const midY = bot.y + (dy / 2);
+                 currentExplosions.push({
+                    id: Math.random().toString(),
+                    x: midX, y: midY, radius: 10, maxRadius: 25, life: 1, color: '#cbd5e1' // White/Smoke sparks
+                 });
+              }
+           }
 
            // 4. Slow down both bots (Crash physics)
            bot.speed = Math.floor(bot.speed * COLLISION_BOUNCE);

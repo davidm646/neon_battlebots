@@ -44,6 +44,9 @@ export interface RobotState {
   heat: number;        // 0-100
   overheated: boolean; // If true, cannot fire until heat drops to 0
   
+  // Collision Logic
+  collisionCooldown: number; // Frames until next collision damage
+  
   // VM State
   registers: Map<string, number>;
   pc: number; // Program Counter

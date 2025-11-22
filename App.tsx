@@ -257,6 +257,24 @@ export default function App() {
   const selectedBotConfig = roster.find(b => b.id === selectedBotId);
   const selectedBotRuntime = bots.find(b => b.id === selectedBotId);
 
+  const getStatusColor = () => {
+    switch (status) {
+      case GameStatus.RUNNING: return 'border-green-500 text-green-400 bg-green-950/30';
+      case GameStatus.PAUSED: return 'border-amber-500 text-amber-400 bg-amber-950/30';
+      case GameStatus.GAME_OVER: return 'border-red-500 text-red-400 bg-red-950/30';
+      default: return 'border-slate-700 text-slate-400 bg-slate-900/50';
+    }
+  };
+
+  const getStatusText = () => {
+    switch (status) {
+      case GameStatus.RUNNING: return 'LIVE SIMULATION';
+      case GameStatus.PAUSED: return 'SIMULATION PAUSED';
+      case GameStatus.GAME_OVER: return 'BATTLE ENDED';
+      default: return 'SYSTEM READY';
+    }
+  };
+
   return (
     <div className="h-screen bg-slate-950 text-slate-200 flex flex-col p-4 gap-4 overflow-hidden">
       
@@ -304,44 +322,51 @@ export default function App() {
            </div>
         </div>
 
-        {/* Middle: Arena */}
-        <div className="lg:col-span-6 flex flex-col items-center justify-center bg-slate-900/50 rounded-lg border border-slate-800 relative overflow-hidden h-full min-h-0 shadow-inner">
-          {/* Overlays */}
-          {status === GameStatus.GAME_OVER && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10 backdrop-blur-sm">
-              <div className="text-center">
-                 <div className="text-4xl font-display font-bold text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.5)] mb-2">SIMULATION ENDED</div>
-                 <div className="text-cyan-400 font-mono">
-                    {bots.filter(b => b.health > 0).length === 1 
-                       ? `WINNER: ${roster.find(r => r.id === bots.find(b => b.health > 0)?.id)?.name.toUpperCase()}` 
-                       : 'DRAW / ANNIHILATION'}
-                 </div>
-              </div>
-            </div>
-          )}
-
-          {status === GameStatus.PAUSED && (
-            <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/40 backdrop-blur-[2px]">
-               <div className="bg-amber-600/90 text-white font-display font-bold text-2xl px-8 py-3 rounded border-2 border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.5)] tracking-widest animate-pulse">
-                 PAUSED
-               </div>
-            </div>
-          )}
-
-          {roster.length === 0 && (
-             <div className="absolute inset-0 flex items-center justify-center z-0">
-                <div className="text-slate-600 font-mono text-sm">ROSTER EMPTY. ADD BOTS TO BEGIN.</div>
+        {/* Middle: Status Bar & Arena */}
+        <div className="lg:col-span-6 flex flex-col h-full min-h-0 gap-2">
+          
+          {/* Status Bar */}
+          <div className={`shrink-0 h-12 rounded-lg border flex items-center justify-between px-6 shadow-sm transition-colors duration-300 ${getStatusColor()}`}>
+             <div className="font-display font-bold tracking-widest flex items-center gap-3">
+                <span className={`w-2 h-2 rounded-full ${status === GameStatus.RUNNING ? 'bg-green-500 animate-pulse' : (status === GameStatus.PAUSED ? 'bg-amber-500' : 'bg-slate-600')}`}></span>
+                {getStatusText()}
              </div>
-          )}
+             <div className="font-mono text-xs opacity-70">
+                BOTS ALIVE: {bots.filter(b => b.health > 0).length} / {bots.length}
+             </div>
+          </div>
 
-          <Arena 
-            bots={bots} 
-            projectiles={projectiles} 
-            explosions={explosions} 
-            config={{width: ARENA_WIDTH, height: ARENA_HEIGHT, fps: 60}} 
-            status={status}
-            onBotClick={setSelectedBotId}
-          />
+          {/* Arena Container */}
+          <div className="flex-1 flex flex-col items-center justify-center bg-slate-900/50 rounded-lg border border-slate-800 relative overflow-hidden shadow-inner min-h-0">
+            {/* Overlays */}
+            {status === GameStatus.GAME_OVER && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10 backdrop-blur-sm">
+                <div className="text-center">
+                  <div className="text-4xl font-display font-bold text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.5)] mb-2">SIMULATION ENDED</div>
+                  <div className="text-cyan-400 font-mono">
+                      {bots.filter(b => b.health > 0).length === 1 
+                        ? `WINNER: ${roster.find(r => r.id === bots.find(b => b.health > 0)?.id)?.name.toUpperCase()}` 
+                        : 'DRAW / ANNIHILATION'}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {roster.length === 0 && (
+              <div className="absolute inset-0 flex items-center justify-center z-0 pointer-events-none">
+                  <div className="text-slate-600 font-mono text-sm">ROSTER EMPTY. ADD BOTS TO BEGIN.</div>
+              </div>
+            )}
+
+            <Arena 
+              bots={bots} 
+              projectiles={projectiles} 
+              explosions={explosions} 
+              config={{width: ARENA_WIDTH, height: ARENA_HEIGHT, fps: 60}} 
+              status={status}
+              onBotClick={setSelectedBotId}
+            />
+          </div>
         </div>
 
         {/* Right: Controls & Roster */}
