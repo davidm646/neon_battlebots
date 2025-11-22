@@ -7,7 +7,8 @@ import {
   DAMAGE_PER_SHOT, HEAT_PER_SHOT, HEAT_DECAY, MAX_HEAT, TURRET_SPEED, TURN_SPEED,
   COLLISION_DAMAGE_FACTOR, WALL_DAMAGE_FACTOR, COLLISION_BOUNCE,
   COLLISION_DAMAGE_THRESHOLD, COLLISION_COOLDOWN,
-  LASER_DAMAGE, LASER_HEAT, LASER_FADE_FRAMES, LASER_COLOR, SCAN_RANGE
+  LASER_DAMAGE, LASER_HEAT, LASER_FADE_FRAMES, LASER_COLOR, SCAN_RANGE,
+  WEAPON_PROJECTILE, WEAPON_LASER
 } from '../constants';
 
 export class PhysicsEngine {
@@ -83,138 +84,131 @@ export class PhysicsEngine {
       }
       bot.turretAngle = (bot.turretAngle + 360) % 360;
 
-      // Firing Logic
-      const shootVal = bot.registers.get('SHOOT');
-      if (shootVal && !bot.overheated) {
-         const turretRad = (bot.turretAngle * Math.PI) / 180;
-         const barrelTipX = bot.x + Math.cos(turretRad) * 25;
-         const barrelTipY = bot.y + Math.sin(turretRad) * 25;
+      // --- Firing Logic ---
+      const shootTrigger = bot.registers.get('SHOOT'); // 1 = Fire!
+      const activeWeapon = bot.activeWeapon;
+      
+      if (shootTrigger === 1 && !bot.overheated) {
+         
+         const currentAmmo = bot.ammo[activeWeapon] || 0;
 
-         // FIRE 1: Standard Projectile
-         if (shootVal === 1) {
-             currentProjs.push({
-               id: Math.random().toString(),
-               ownerId: bot.id,
-               x: barrelTipX,
-               y: barrelTipY,
-               vx: Math.cos(turretRad) * PROJECTILE_SPEED,
-               vy: Math.sin(turretRad) * PROJECTILE_SPEED,
-               damage: DAMAGE_PER_SHOT,
-               active: true
-             });
+         if (currentAmmo > 0) {
+             const turretRad = (bot.turretAngle * Math.PI) / 180;
+             const barrelTipX = bot.x + Math.cos(turretRad) * 25;
+             const barrelTipY = bot.y + Math.sin(turretRad) * 25;
 
-             audio.playShoot();
-             bot.heat += HEAT_PER_SHOT;
-         } 
-         // FIRE 2: Laser (Hitscan)
-         else if (shootVal === 2) {
-             // Raycast Logic
-             let closestDist = SCAN_RANGE; // Max range
-             let hitX = barrelTipX + Math.cos(turretRad) * SCAN_RANGE;
-             let hitY = barrelTipY + Math.sin(turretRad) * SCAN_RANGE;
-             let hitBot: RobotState | null = null;
+             // WEAPON 1: Slug
+             if (activeWeapon === WEAPON_PROJECTILE) {
+                 currentProjs.push({
+                   id: Math.random().toString(),
+                   ownerId: bot.id,
+                   x: barrelTipX,
+                   y: barrelTipY,
+                   vx: Math.cos(turretRad) * PROJECTILE_SPEED,
+                   vy: Math.sin(turretRad) * PROJECTILE_SPEED,
+                   damage: DAMAGE_PER_SHOT,
+                   active: true
+                 });
 
-             const dirX = Math.cos(turretRad);
-             const dirY = Math.sin(turretRad);
+                 audio.playShoot();
+                 bot.heat += HEAT_PER_SHOT;
+                 bot.ammo[activeWeapon]--; // Deduct Ammo
+             } 
+             // WEAPON 2: Laser
+             else if (activeWeapon === WEAPON_LASER) {
+                 // Raycast Logic
+                 let closestDist = SCAN_RANGE;
+                 let hitX = barrelTipX + Math.cos(turretRad) * SCAN_RANGE;
+                 let hitY = barrelTipY + Math.sin(turretRad) * SCAN_RANGE;
+                 let hitBot: RobotState | null = null;
 
-             // 1. Check Walls (Line Intersection)
-             // X intersection
-             if (dirX !== 0) {
-                let wallX = dirX > 0 ? ARENA_WIDTH : 0;
-                let dist = (wallX - barrelTipX) / dirX;
-                if (dist > 0 && dist < closestDist) {
-                   // Check if Y is within height
-                   let wallY = barrelTipY + dist * dirY;
-                   if (wallY >= 0 && wallY <= ARENA_HEIGHT) {
-                      closestDist = dist;
-                      hitX = wallX;
-                      hitY = wallY;
-                   }
-                }
-             }
-             // Y intersection
-             if (dirY !== 0) {
-                let wallY = dirY > 0 ? ARENA_HEIGHT : 0;
-                let dist = (wallY - barrelTipY) / dirY;
-                if (dist > 0 && dist < closestDist) {
-                   let wallX = barrelTipX + dist * dirX;
-                   if (wallX >= 0 && wallX <= ARENA_WIDTH) {
-                      closestDist = dist;
-                      hitX = wallX;
-                      hitY = wallY;
-                   }
-                }
-             }
+                 const dirX = Math.cos(turretRad);
+                 const dirY = Math.sin(turretRad);
 
-             // 2. Check Bots (Line-Circle Intersection)
-             currentBots.forEach(other => {
-               if (other.id === bot.id || other.health <= 0) return;
-               
-               // Vector from ray start to circle center
-               const fX = barrelTipX - other.x;
-               const fY = barrelTipY - other.y;
-               
-               const a = dirX * dirX + dirY * dirY; // Should be 1 if normalized
-               const b = 2 * (fX * dirX + fY * dirY);
-               const c = (fX * fX + fY * fY) - (ROBOT_RADIUS * ROBOT_RADIUS);
-               
-               let discriminant = b*b - 4*a*c;
-               
-               if(discriminant >= 0) {
-                 // Ray intersects circle
-                 discriminant = Math.sqrt(discriminant);
-                 const t1 = (-b - discriminant) / (2*a);
-                 const t2 = (-b + discriminant) / (2*a);
-                 
-                 // Logic Check: 
-                 // t1 is usually entry, t2 is exit.
-                 // If t1 < 0, it means entry is behind us (we are inside the bot), so we check t2.
-                 
-                 let tHit = -1;
-                 if (t1 >= 0) {
-                    tHit = t1;
-                 } else if (t2 >= 0) {
-                    // Point blank shot / Inside hitbox
-                    tHit = t2;
+                 // Wall Checks
+                 if (dirX !== 0) {
+                    let wallX = dirX > 0 ? ARENA_WIDTH : 0;
+                    let dist = (wallX - barrelTipX) / dirX;
+                    if (dist > 0 && dist < closestDist) {
+                       let wallY = barrelTipY + dist * dirY;
+                       if (wallY >= 0 && wallY <= ARENA_HEIGHT) {
+                          closestDist = dist;
+                          hitX = wallX;
+                          hitY = wallY;
+                       }
+                    }
                  }
-                 
-                 if(tHit >= 0 && tHit < closestDist) {
-                    closestDist = tHit;
-                    hitX = barrelTipX + tHit * dirX;
-                    hitY = barrelTipY + tHit * dirY;
-                    hitBot = other;
+                 if (dirY !== 0) {
+                    let wallY = dirY > 0 ? ARENA_HEIGHT : 0;
+                    let dist = (wallY - barrelTipY) / dirY;
+                    if (dist > 0 && dist < closestDist) {
+                       let wallX = barrelTipX + dist * dirX;
+                       if (wallX >= 0 && wallX <= ARENA_WIDTH) {
+                          closestDist = dist;
+                          hitX = wallX;
+                          hitY = wallY;
+                       }
+                    }
                  }
-               }
-             });
 
-             // Apply Hit
-             if (hitBot) {
-                hitBot.health -= LASER_DAMAGE;
-                audio.playHit();
-                currentExplosions.push({
-                    id: Math.random().toString(),
-                    x: hitX, y: hitY, radius: 5, maxRadius: 15, life: 1, color: '#22d3ee'
-                });
-                if (hitBot.health <= 0) audio.playExplosion();
+                 // Bot Checks
+                 currentBots.forEach(other => {
+                   if (other.id === bot.id || other.health <= 0) return;
+                   
+                   const fX = barrelTipX - other.x;
+                   const fY = barrelTipY - other.y;
+                   
+                   const a = dirX * dirX + dirY * dirY;
+                   const b = 2 * (fX * dirX + fY * dirY);
+                   const c = (fX * fX + fY * fY) - (ROBOT_RADIUS * ROBOT_RADIUS);
+                   
+                   let discriminant = b*b - 4*a*c;
+                   
+                   if(discriminant >= 0) {
+                     discriminant = Math.sqrt(discriminant);
+                     const t1 = (-b - discriminant) / (2*a);
+                     const t2 = (-b + discriminant) / (2*a);
+                     
+                     let tHit = -1;
+                     if (t1 >= 0) tHit = t1;
+                     else if (t2 >= 0) tHit = t2; // Inside hit
+                     
+                     if(tHit >= 0 && tHit < closestDist) {
+                        closestDist = tHit;
+                        hitX = barrelTipX + tHit * dirX;
+                        hitY = barrelTipY + tHit * dirY;
+                        hitBot = other;
+                     }
+                   }
+                 });
+
+                 if (hitBot) {
+                    hitBot.health -= LASER_DAMAGE;
+                    audio.playHit();
+                    currentExplosions.push({
+                        id: Math.random().toString(),
+                        x: hitX, y: hitY, radius: 5, maxRadius: 15, life: 1, color: '#22d3ee'
+                    });
+                    if (hitBot.health <= 0) audio.playExplosion();
+                 }
+
+                 currentLasers.push({
+                   id: Math.random().toString(),
+                   ownerId: bot.id,
+                   x1: barrelTipX,
+                   y1: barrelTipY,
+                   x2: hitX,
+                   y2: hitY,
+                   color: LASER_COLOR,
+                   life: 1
+                 });
+
+                 audio.playLaser();
+                 bot.heat += LASER_HEAT;
+                 // Laser is unlimited, no ammo deduction
              }
-
-             // Create Laser Visual
-             currentLasers.push({
-               id: Math.random().toString(),
-               ownerId: bot.id,
-               x1: barrelTipX,
-               y1: barrelTipY,
-               x2: hitX,
-               y2: hitY,
-               color: LASER_COLOR,
-               life: 1
-             });
-
-             audio.playLaser();
-             bot.heat += LASER_HEAT;
          }
 
-         // Common heat check
          if (bot.heat >= MAX_HEAT) {
            bot.heat = MAX_HEAT;
            bot.overheated = true;
@@ -226,7 +220,6 @@ export class PhysicsEngine {
     audio.updateEngine(totalBotSpeed);
 
     // 2. Collision Resolution
-    
     currentBots.forEach((bot, i) => {
        if (bot.health <= 0) return;
        

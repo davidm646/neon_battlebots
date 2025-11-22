@@ -265,7 +265,7 @@ export default function App() {
             {status === GameStatus.GAME_OVER && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10 backdrop-blur-sm">
                 <div className="text-center">
-                  <div className="text-4xl font-display font-bold text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.5)] mb-2">SIMULATION ENDED</div>
+                  <div className="text-4xl font-display font-bold text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.5)] mb-2">BATTLE OVER</div>
                   <div className="text-cyan-400 font-mono">
                       {bots.filter(b => b.health > 0).length === 1 
                         ? `WINNER: ${roster.find(r => r.id === bots.find(b => b.health > 0)?.id)?.name.toUpperCase()}` 

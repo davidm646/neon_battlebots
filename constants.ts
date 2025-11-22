@@ -8,6 +8,12 @@ export const MAX_HEALTH = 100;
 export const DAMAGE_PER_SHOT = 10;
 export const SCAN_RANGE = 1200; // Increased to ensure corner-to-corner coverage
 
+// Weapon System
+export const WEAPON_PROJECTILE = 1;
+export const WEAPON_LASER = 2;
+export const AMMO_PROJECTILE = 50; // Limited ammo for standard gun
+export const AMMO_LASER = 999;     // Effectively unlimited
+
 // Collision Physics
 export const COLLISION_DAMAGE_FACTOR = 0.5; // Reduced factor
 export const WALL_DAMAGE_FACTOR = 0.5;      // Reduced factor
@@ -61,22 +67,23 @@ JEQ label     : Jump if a == b
 SCAN angle    : Puts distance in RADAR (0 if none)
 
 System Registers (Controls):
-SPEED (0-10), ANGLE (0-360), TURRET (0-360), SHOOT (0/1/2)
+SPEED (0-10), ANGLE (0-360), TURRET (0-360)
+WEAPON (1=Slug, 2=Laser), SHOOT (1=Fire)
 
 System Registers (Sensors):
-RADAR, HEAT, X, Y, HEALTH, TIME
+RADAR, HEAT, AMMO, X, Y, HEALTH, TIME
 
 Aliases:
 AIM x  -> SET TURRET x
 MOVE x -> SET SPEED x
 TURN x -> SET ANGLE x
-FIRE 1 -> Standard Projectile (20 Heat, 10 Dmg)
-FIRE 2 -> High Power Laser (40 Heat, 8 Dmg, Instant)
+FIRE 1 -> SET SHOOT 1 (Fires active WEAPON)
 `;
 
 export const DEFAULT_BOT_SCRIPT = `
 ; Default Sentry
 START:
+  SET weapon 1 ; Select Slug
   SET aim 0
 
 LOOP:
@@ -94,16 +101,18 @@ LOOP:
   JMP LOOP
 
 ATTACK:
-  ; Use Laser if close, else projectile
+  ; Use Laser (Wep 2) if close
   CMP radar 200
-  JLT LASER_SHOT
+  JLT LASER_MODE
   
+  SET weapon 1
   FIRE 1
   ADD aim 5
   JMP LOOP
 
-LASER_SHOT:
-  FIRE 2
+LASER_MODE:
+  SET weapon 2
+  FIRE 1
   JMP LOOP
 
 COOL_DOWN:

@@ -1,6 +1,6 @@
 
 import { RobotState, OpCode, Instruction } from '../types';
-import { ARENA_WIDTH, ARENA_HEIGHT } from '../constants';
+import { ARENA_WIDTH, ARENA_HEIGHT, AMMO_PROJECTILE, AMMO_LASER, WEAPON_PROJECTILE, WEAPON_LASER } from '../constants';
 import { Compiler } from './compiler';
 import { audio } from './audio';
 
@@ -15,27 +15,28 @@ export class VM {
     const startTurret = Math.floor(Math.random() * 360);
 
     // 1. Initialize System Registers (Read/Write & Read-Only)
-    // These are the ONLY "official" registers.
-    const systemRegs = ['X', 'Y', 'SPEED', 'ANGLE', 'TURRET', 'SHOOT', 'RADAR', 'HEAT', 'TIME', 'HEALTH'];
+    const systemRegs = [
+      'X', 'Y', 'SPEED', 'ANGLE', 'TURRET', 
+      'SHOOT', 'RADAR', 'HEAT', 'TIME', 'HEALTH', 
+      'WEAPON', 'AMMO'
+    ];
     systemRegs.forEach(r => regs.set(r, 0));
     
-    // Set random starts in registers so the physics engine picks them up immediately
+    // Defaults
     regs.set('ANGLE', startAngle);
     regs.set('TURRET', startTurret);
+    regs.set('WEAPON', WEAPON_PROJECTILE); // Default to Weapon 1
 
     // 2. Dynamically scan program for User Variables
-    // Any argument that is NOT a Number, NOT a Label, and NOT a System Register is a User Variable.
     program.forEach((instr: Instruction) => {
       instr.args.forEach(arg => {
         if (!arg) return;
         const upperArg = arg.toUpperCase();
-        
         const isNumber = /^-?\d+$/.test(upperArg);
         const isLabel = labels.has(upperArg);
         const isSystemReg = regs.has(upperArg);
 
         if (!isNumber && !isLabel && !isSystemReg) {
-          // Initialize variable to 0 if not already present
           if (!regs.has(upperArg)) {
             regs.set(upperArg, 0);
           }
@@ -51,6 +52,14 @@ export class VM {
       turretAngle: startTurret, 
       desiredTurretAngle: startTurret,
       health: 100, energy: 100, radius: 20,
+      
+      // Weapon Inventory
+      activeWeapon: WEAPON_PROJECTILE,
+      ammo: {
+        [WEAPON_PROJECTILE]: AMMO_PROJECTILE,
+        [WEAPON_LASER]: AMMO_LASER
+      },
+
       heat: 0,
       overheated: false,
       collisionCooldown: 0,
@@ -61,25 +70,29 @@ export class VM {
       cmpFlag: 0,
       scanCooldown: 0,
       shootCooldown: 0,
-      lastScanResult: 0, // Default to 0 (nothing found) instead of -1
+      lastScanResult: 0,
       lastScanAngle: 0,
-      lastScanTime: -999 // Never scanned
+      lastScanTime: -999
     };
   }
 
   static step(bot: RobotState, allBots: RobotState[], executionCycles: number = 5): void {
     if (bot.health <= 0) return;
 
-    // Update Read-Only Registers with Physics State
+    // --- Sync Physics -> Registers (Read Only) ---
     bot.registers.set('X', Math.floor(bot.x));
     bot.registers.set('Y', Math.floor(bot.y));
     bot.registers.set('HEALTH', Math.floor(bot.health));
     bot.registers.set('HEAT', Math.floor(bot.heat));
-    
-    // Ensure sensors are up to date before code execution
-    // RADAR is updated by SCAN command, but we sync the last result just in case
     bot.registers.set('RADAR', bot.lastScanResult); 
+    
+    // Sync Weapon/Ammo Registers
+    // Note: activeWeapon is the source of truth for the physics engine, 
+    // but we let the register reflect it for the debugger.
+    bot.registers.set('WEAPON', bot.activeWeapon);
+    bot.registers.set('AMMO', bot.ammo[bot.activeWeapon] || 0);
 
+    // --- Execute Code ---
     for (let i = 0; i < executionCycles; i++) {
       if (bot.pc >= bot.program.length) {
         bot.pc = 0; // Loop
@@ -92,17 +105,21 @@ export class VM {
       bot.pc++;
     }
 
-    // Apply Physics from Registers to Bot State
-    // Clamp Speed 0-10
+    // --- Sync Registers -> Physics (Write) ---
+    // Movement
     bot.speed = Math.max(0, Math.min(10, bot.registers.get('SPEED') || 0));
     
-    // Set Desired Body Angle (Physics loop handles smoothness)
     let angle = bot.registers.get('ANGLE') || 0;
     bot.desiredAngle = (angle % 360 + 360) % 360;
     
-    // Set Desired Turret Angle from Register (Physics loop handles smoothness)
     let turret = bot.registers.get('TURRET') || 0;
     bot.desiredTurretAngle = (turret % 360 + 360) % 360;
+
+    // Weapon Selection
+    const requestedWeapon = bot.registers.get('WEAPON');
+    if (requestedWeapon && (requestedWeapon === 1 || requestedWeapon === 2)) {
+      bot.activeWeapon = requestedWeapon;
+    }
   }
 
   private static getVal(bot: RobotState, arg: string): number {
@@ -133,8 +150,7 @@ export class VM {
         if (val !== 0) bot.registers.set(r1, Math.floor((bot.registers.get(r1) || 0) / val));
         break;
       case OpCode.CMP:
-        // Compare Register r1 with Value/Register val
-        const v1 = bot.registers.get(r1) || 0; // Assuming first arg is always reg in CMP
+        const v1 = bot.registers.get(r1) || 0;
         if (v1 < val) bot.cmpFlag = -1;
         else if (v1 > val) bot.cmpFlag = 1;
         else bot.cmpFlag = 0;
@@ -152,18 +168,11 @@ export class VM {
         if (bot.cmpFlag === 0 && bot.labels.has(r1)) bot.pc = bot.labels.get(r1)! - 1;
         break;
       case OpCode.SCAN:
-        // SCAN angle
-        // args[0] is angle (value or register)
         const scanAngle = VM.getVal(bot, args[0]);
         bot.lastScanResult = VM.performScan(bot, scanAngle, allBots);
         bot.registers.set('RADAR', bot.lastScanResult);
-        
-        // Visual Event Tracking
         bot.lastScanAngle = (scanAngle % 360 + 360) % 360;
         bot.lastScanTime = bot.registers.get('TIME') || 0;
-        
-        // NOTE: Audio removed at user request (too noisy)
-        // audio.playScan();
         break;
     }
   }
@@ -178,13 +187,9 @@ export class VM {
       const dy = other.y - bot.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       
-      // Calculate angle to target
       const angleToBot = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
-      
-      // Normalize scan angle
       const normScanAngle = (angle % 360 + 360) % 360;
 
-      // Cone check (5 degrees total width, +/- 2.5 degrees)
       const angleDiff = Math.abs(angleToBot - normScanAngle);
       const wrappedDiff = Math.min(angleDiff, 360 - angleDiff);
 
@@ -193,7 +198,6 @@ export class VM {
       }
     }
 
-    // Return 0 if nothing found (standard for RobotWar style scanners)
     return minDist === 9999 ? 0 : Math.floor(minDist);
   }
 }

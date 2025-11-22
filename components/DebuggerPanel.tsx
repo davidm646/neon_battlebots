@@ -13,7 +13,7 @@ interface DebuggerPanelProps {
 }
 
 const SYSTEM_REGISTERS = new Set([
-  'SPEED', 'ANGLE', 'TURRET', 'SHOOT', 'RADAR', 'X', 'Y', 'HEALTH', 'TIME', 'HEAT'
+  'SPEED', 'ANGLE', 'TURRET', 'SHOOT', 'RADAR', 'X', 'Y', 'HEALTH', 'TIME', 'HEAT', 'WEAPON', 'AMMO'
 ]);
 
 // Helper to categorize registers

@@ -41,6 +41,10 @@ export interface RobotState {
   energy: number;
   radius: number;
   
+  // Weapon System
+  activeWeapon: number; // 1 = Projectile, 2 = Laser
+  ammo: Record<number, number>; // Inventory: { 1: 100, 2: 999 }
+
   // Heat System
   heat: number;        // 0-100
   overheated: boolean; // If true, cannot fire until heat drops to 0

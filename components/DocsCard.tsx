@@ -47,15 +47,18 @@ export const DocsCard: React.FC = () => {
 
             <section>
               <h3 className="text-cyan-400 font-bold mb-1">Weapons</h3>
+              <p className="text-slate-400 mb-2">
+                To fire, first select a weapon with <code className="text-pink-400">SET WEAPON x</code>, then trigger it with <code className="text-pink-400">FIRE 1</code>.
+              </p>
               <div className="grid grid-cols-1 gap-2 mt-1">
                 <div className="bg-slate-900 p-2 rounded border-l-2 border-yellow-500">
-                  <div className="text-yellow-400 font-bold text-[10px]">FIRE 1: PROJECTILE</div>
-                  <div className="text-slate-500 text-[9px]">Heat: 20 • Dmg: 10</div>
-                  <div className="text-slate-500 text-[9px]">Standard slug. Requires leading the target.</div>
+                  <div className="text-yellow-400 font-bold text-[10px]">WEAPON 1: PROJECTILE</div>
+                  <div className="text-slate-500 text-[9px]">Heat: 20 • Dmg: 10 • Ammo: 50</div>
+                  <div className="text-slate-500 text-[9px]">Standard slug. Limited ammo.</div>
                 </div>
                 <div className="bg-slate-900 p-2 rounded border-l-2 border-cyan-500">
-                  <div className="text-cyan-400 font-bold text-[10px]">FIRE 2: LASER</div>
-                  <div className="text-slate-500 text-[9px]">Heat: 40 • Dmg: 8</div>
+                  <div className="text-cyan-400 font-bold text-[10px]">WEAPON 2: LASER</div>
+                  <div className="text-slate-500 text-[9px]">Heat: 40 • Dmg: 8 • Ammo: ∞</div>
                   <div className="text-slate-500 text-[9px]">Instant Hitscan. High Heat cost.</div>
                 </div>
               </div>
@@ -130,7 +133,7 @@ JEQ PATROL     ; Jumps ONLY if radar == 0
                 <div className="bg-slate-900 px-2 py-1 rounded"><span className="text-pink-400">MOVE x</span> = SET SPEED x</div>
                 <div className="bg-slate-900 px-2 py-1 rounded"><span className="text-pink-400">TURN x</span> = SET ANGLE x</div>
                 <div className="bg-slate-900 px-2 py-1 rounded"><span className="text-pink-400">AIM x</span> = SET TURRET x</div>
-                <div className="bg-slate-900 px-2 py-1 rounded"><span className="text-pink-400">FIRE 1/2</span> = SET SHOOT 1/2</div>
+                <div className="bg-slate-900 px-2 py-1 rounded"><span className="text-pink-400">FIRE 1</span> = SET SHOOT 1</div>
               </div>
             </div>
           </div>
@@ -146,7 +149,8 @@ JEQ PATROL     ; Jumps ONLY if radar == 0
                     { name: 'SPEED', r: '0-10', d: 'Engine power' },
                     { name: 'ANGLE', r: '0-360', d: 'Body Direction' },
                     { name: 'TURRET', r: '0-360', d: 'Gun Direction' },
-                    { name: 'SHOOT', r: '1/2', d: '1=Slug, 2=Laser' },
+                    { name: 'WEAPON', r: '1-2', d: '1=Slug, 2=Laser' },
+                    { name: 'SHOOT', r: '0/1', d: '1 = Fire Active Weapon' },
                   ].map((reg, i) => (
                     <div key={i} className="flex items-center justify-between bg-slate-800 p-2 rounded text-[10px]">
                       <div>
@@ -164,6 +168,7 @@ JEQ PATROL     ; Jumps ONLY if radar == 0
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { name: 'RADAR', d: 'Last Scan Dist' },
+                    { name: 'AMMO', d: 'Ammo for active weapon' },
                     { name: 'HEAT', d: 'Gun Heat 0-100' },
                     { name: 'X', d: 'Position X' },
                     { name: 'Y', d: 'Position Y' },
