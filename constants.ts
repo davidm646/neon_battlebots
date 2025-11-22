@@ -22,6 +22,7 @@ export const HEAT_DECAY = 1.0; // Per Frame
 
 // Physics Balance
 export const TURRET_SPEED = 10; // Degrees per frame
+export const TURN_SPEED = 5;    // Degrees per frame (Chassis)
 
 export const BOT_PALETTE = [
   '#ef4444', // Red

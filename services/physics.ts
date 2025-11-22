@@ -1,9 +1,10 @@
 
 import { RobotState, Projectile, Explosion } from '../types';
 import { VM } from './vm';
+import { audio } from './audio';
 import { 
   ARENA_WIDTH, ARENA_HEIGHT, ROBOT_RADIUS, PROJECTILE_SPEED, PROJECTILE_RADIUS, 
-  DAMAGE_PER_SHOT, HEAT_PER_SHOT, HEAT_DECAY, MAX_HEAT, TURRET_SPEED, 
+  DAMAGE_PER_SHOT, HEAT_PER_SHOT, HEAT_DECAY, MAX_HEAT, TURRET_SPEED, TURN_SPEED,
   COLLISION_DAMAGE_FACTOR, WALL_DAMAGE_FACTOR, COLLISION_BOUNCE,
   COLLISION_DAMAGE_THRESHOLD, COLLISION_COOLDOWN
 } from '../constants';
@@ -20,10 +21,19 @@ export class PhysicsEngine {
     const currentBots = [...bots];
     let currentProjs = [...projectiles];
     let currentExplosions = [...explosions];
+    
+    let totalBotSpeed = 0;
 
     // 1. Run VM and Logic
     currentBots.forEach(bot => {
       if (bot.health <= 0) return;
+      
+      // Increment Time Register
+      const time = bot.registers.get('TIME') || 0;
+      bot.registers.set('TIME', time + 1);
+
+      // Aggregate speed for audio
+      totalBotSpeed += bot.speed;
 
       // Cooldowns
       if (bot.heat > 0) {
@@ -39,20 +49,34 @@ export class PhysicsEngine {
       // Execute VM
       VM.step(bot, currentBots, cycles);
 
-      // Move Bot based on registers
+      // --- Movement Physics ---
+      
+      // 1. Chassis Rotation Smoothing
+      let diffAngle = bot.desiredAngle - bot.angle;
+      while (diffAngle <= -180) diffAngle += 360;
+      while (diffAngle > 180) diffAngle -= 360;
+
+      if (Math.abs(diffAngle) < TURN_SPEED) {
+        bot.angle = bot.desiredAngle;
+      } else {
+        bot.angle += Math.sign(diffAngle) * TURN_SPEED;
+      }
+      bot.angle = (bot.angle + 360) % 360;
+
+      // 2. Move Forward (based on physical angle)
       const rad = (bot.angle * Math.PI) / 180;
       bot.x += Math.cos(rad) * (bot.speed / 2); 
       bot.y += Math.sin(rad) * (bot.speed / 2);
 
-      // Turret Rotation Smoothing
-      let diff = bot.desiredTurretAngle - bot.turretAngle;
-      while (diff <= -180) diff += 360;
-      while (diff > 180) diff -= 360;
+      // 3. Turret Rotation Smoothing
+      let diffTurret = bot.desiredTurretAngle - bot.turretAngle;
+      while (diffTurret <= -180) diffTurret += 360;
+      while (diffTurret > 180) diffTurret -= 360;
 
-      if (Math.abs(diff) < TURRET_SPEED) {
+      if (Math.abs(diffTurret) < TURRET_SPEED) {
         bot.turretAngle = bot.desiredTurretAngle;
       } else {
-        bot.turretAngle += Math.sign(diff) * TURRET_SPEED;
+        bot.turretAngle += Math.sign(diffTurret) * TURRET_SPEED;
       }
       bot.turretAngle = (bot.turretAngle + 360) % 360;
 
@@ -71,6 +95,8 @@ export class PhysicsEngine {
                active: true
              });
 
+             audio.playShoot(); // Audio Trigger
+
              bot.heat += HEAT_PER_SHOT;
              if (bot.heat >= MAX_HEAT) {
                bot.heat = MAX_HEAT;
@@ -80,6 +106,9 @@ export class PhysicsEngine {
       }
       bot.registers.set('SHOOT', 0);
     });
+    
+    // Update Engine Rumble based on total movement
+    audio.updateEngine(totalBotSpeed);
 
     // 2. Collision Resolution (Walls & Bots)
     currentBots.forEach((bot, i) => {
@@ -115,6 +144,7 @@ export class PhysicsEngine {
          if (bot.speed > COLLISION_DAMAGE_THRESHOLD && bot.collisionCooldown === 0) {
             bot.health -= bot.speed * WALL_DAMAGE_FACTOR;
             bot.collisionCooldown = COLLISION_COOLDOWN;
+            audio.playCrash(); // Audio Trigger
          }
          
          // Crash stop/bounce
@@ -168,6 +198,8 @@ export class PhysicsEngine {
                  bot.collisionCooldown = COLLISION_COOLDOWN;
                  other.collisionCooldown = COLLISION_COOLDOWN;
                  
+                 audio.playCrash(); // Audio Trigger
+                 
                  // Visuals (Explosion at midpoint)
                  const midX = bot.x + (dx / 2);
                  const midY = bot.y + (dy / 2);
@@ -208,6 +240,12 @@ export class PhysicsEngine {
         if (dist < ROBOT_RADIUS + PROJECTILE_RADIUS) {
           p.active = false;
           bot.health -= p.damage;
+          
+          audio.playHit(); // Audio Trigger Hit
+
+          if (bot.health <= 0) {
+            audio.playExplosion(); // Audio Trigger Death
+          }
           
           currentExplosions.push({
             id: Math.random().toString(),

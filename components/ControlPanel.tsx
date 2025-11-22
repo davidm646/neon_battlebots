@@ -84,6 +84,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     e.target.value = '';
   };
 
+  // Helper to determine if we are in a "Stopped" like state for UI purposes
+  const isStoppedOrReady = status === GameStatus.STOPPED || status === GameStatus.GAME_OVER || status === GameStatus.READY;
+
   return (
     <div className="h-full flex flex-col gap-4 overflow-hidden pb-1">
       
@@ -92,7 +95,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         
         {/* 1. Game Controls */}
         <div className="grid grid-cols-2 gap-2 shrink-0">
-           {(status === GameStatus.STOPPED || status === GameStatus.GAME_OVER) && (
+           {isStoppedOrReady && (
               <button 
                 onClick={onPlay} 
                 disabled={roster.length === 0}
@@ -110,7 +113,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
              </button>
           )}
 
-          {(status === GameStatus.STOPPED || status === GameStatus.GAME_OVER) && (
+          {isStoppedOrReady && (
              <button onClick={onReset} className="bg-slate-600 hover:bg-slate-500 text-white font-bold py-3 px-4 rounded shadow-lg transition border-b-4 border-slate-800 active:border-0 active:translate-y-1 text-sm flex items-center justify-center gap-2">
                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                RESET

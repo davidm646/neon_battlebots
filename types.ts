@@ -32,7 +32,8 @@ export interface RobotState {
   color: string;
   x: number;
   y: number;
-  angle: number;       // Degrees 0-360
+  angle: number;       // Degrees 0-360 (Physical)
+  desiredAngle: number; // Degrees 0-360 (Target)
   speed: number;       // 0-100
   turretAngle: number; // Current physical angle
   desiredTurretAngle: number; // Target angle set by code
@@ -91,6 +92,7 @@ export interface GameConfig {
 
 export enum GameStatus {
   STOPPED = 'STOPPED',
+  READY = 'READY',
   RUNNING = 'RUNNING',
   PAUSED = 'PAUSED',
   GAME_OVER = 'GAME_OVER'

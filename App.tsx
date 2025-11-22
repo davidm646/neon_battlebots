@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Arena } from './components/Arena';
 import { CodeEditor } from './components/CodeEditor';
@@ -8,6 +7,10 @@ import { GameStatus, RobotState, Projectile, Explosion, BotConfig } from './type
 import { ARENA_WIDTH, ARENA_HEIGHT, DEFAULT_BOT_SCRIPT, TARGET_BOT_SCRIPT, BOT_PALETTE } from './constants';
 import { VM } from './services/vm';
 import { PhysicsEngine } from './services/physics';
+import { audio } from './services/audio';
+import { getSafeSpawnPoint } from './services/spawner';
+import { useResizable } from './hooks/useResizable';
+import { useRosterSync } from './hooks/useRosterSync';
 
 export default function App() {
   // --- Roster State (The Source of Truth for Bots) ---
@@ -26,10 +29,11 @@ export default function App() {
   const explosionsRef = useRef<Explosion[]>([]);
   const requestRef = useRef<number>(0);
 
-  // --- UI Resizing State ---
-  const [editorHeightPercent, setEditorHeightPercent] = useState(60);
-  const colRef = useRef<HTMLDivElement>(null);
-  const isResizing = useRef(false);
+  // --- Hooks ---
+  const { heightPercent: editorHeightPercent, startResizing, containerRef: colRef } = useResizable(60);
+  
+  // Sync Roster changes to Runtime Bots
+  useRosterSync(roster, status, setBots, botsRef);
 
   // --- Helper Functions ---
 
@@ -57,10 +61,6 @@ export default function App() {
     setRoster(prev => prev.map(b => b.id === id ? { ...b, code: newCode } : b));
   };
 
-  const updateBotName = (id: string, newName: string) => {
-    setRoster(prev => prev.map(b => b.id === id ? { ...b, name: newName } : b));
-  };
-
   const addBotToRoster = (bot: BotConfig) => {
     setRoster(prev => [...prev, bot]);
     setSelectedBotId(bot.id); // Auto select new bot
@@ -75,16 +75,16 @@ export default function App() {
 
   // --- Game State Management ---
 
-  // Full Reset: Randomizes positions (Used for Reset Button)
+  // Full Reset: Randomizes positions (Used for Play & Reset Buttons)
   const scrambleAndReset = useCallback(() => {
     const startBots: RobotState[] = [];
     
     roster.forEach((config) => {
-      const margin = 100;
-      let x = margin + Math.random() * (ARENA_WIDTH - margin * 2);
-      let y = margin + Math.random() * (ARENA_HEIGHT - margin * 2);
-      
-      startBots.push(VM.createRobot(config.id, config.color, config.code, x, y));
+      const { x, y } = getSafeSpawnPoint(startBots);
+      const bot = VM.createRobot(config.id, config.color, config.code, x, y);
+      // Ensure Time starts at 0
+      bot.registers.set('TIME', 0);
+      startBots.push(bot);
     });
 
     setBots(startBots);
@@ -94,76 +94,6 @@ export default function App() {
     projectilesRef.current = [];
     explosionsRef.current = [];
   }, [roster]);
-
-  // Restart Match: Keeps positions, resets Health/VM (Used for Play Button)
-  const restartMatch = useCallback(() => {
-    // Re-create bot state (health 100, fresh VM) but PRESERVE position/angle
-    const freshBots = botsRef.current.map(bot => {
-      const config = roster.find(r => r.id === bot.id);
-      if (!config) return bot; // Should not happen if synced
-
-      const newState = VM.createRobot(config.id, config.color, config.code, bot.x, bot.y);
-      // Keep their current angle so they don't snap to 0
-      newState.angle = bot.angle;
-      newState.turretAngle = bot.turretAngle;
-      newState.desiredTurretAngle = bot.turretAngle;
-      return newState;
-    });
-
-    // If roster has bots that aren't in botsRef (e.g. cleared array), spawn them
-    if (freshBots.length < roster.length) {
-       const existingIds = new Set(freshBots.map(b => b.id));
-       roster.forEach(config => {
-         if (!existingIds.has(config.id)) {
-            const margin = 100;
-            const x = margin + Math.random() * (ARENA_WIDTH - margin * 2);
-            const y = margin + Math.random() * (ARENA_HEIGHT - margin * 2);
-            freshBots.push(VM.createRobot(config.id, config.color, config.code, x, y));
-         }
-       });
-    }
-
-    setBots(freshBots);
-    setProjectiles([]);
-    setExplosions([]);
-    botsRef.current = freshBots;
-    projectilesRef.current = [];
-    explosionsRef.current = [];
-  }, [roster]);
-
-  // --- Roster Sync Effect ---
-  useEffect(() => {
-    if (status !== GameStatus.STOPPED) return;
-
-    setBots(currentBots => {
-       const nextBots = roster.map(config => {
-          const existing = currentBots.find(b => b.id === config.id);
-          
-          if (existing) {
-            // Update VM (in case code changed) but Keep Position
-            const vmBot = VM.createRobot(config.id, config.color, config.code, existing.x, existing.y);
-            return {
-              ...vmBot,
-              x: existing.x,
-              y: existing.y,
-              angle: existing.angle,
-              turretAngle: existing.turretAngle,
-              desiredTurretAngle: existing.turretAngle
-            };
-          } else {
-            // New Bot: Random Position
-            const margin = 100;
-            const x = margin + Math.random() * (ARENA_WIDTH - margin * 2);
-            const y = margin + Math.random() * (ARENA_HEIGHT - margin * 2);
-            return VM.createRobot(config.id, config.color, config.code, x, y);
-          }
-       });
-       
-       botsRef.current = nextBots;
-       return nextBots;
-    });
-
-  }, [roster, status]);
 
 
   // --- Physics Loop ---
@@ -203,8 +133,12 @@ export default function App() {
   useEffect(() => {
     if (status === GameStatus.RUNNING) {
       requestRef.current = requestAnimationFrame(gameLoop);
-    } else if (requestRef.current) {
-      cancelAnimationFrame(requestRef.current);
+    } else {
+      // Stop engine sound if not running
+      audio.stopEngine();
+      if (requestRef.current) {
+        cancelAnimationFrame(requestRef.current);
+      }
     }
     return () => {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
@@ -213,43 +147,22 @@ export default function App() {
 
   // --- Handlers ---
 
-  const startResizing = useCallback(() => {
-    isResizing.current = true;
-    document.body.style.cursor = 'row-resize';
-    document.body.style.userSelect = 'none';
-  }, []);
-
-  const stopResizing = useCallback(() => {
-    isResizing.current = false;
-    document.body.style.cursor = '';
-    document.body.style.userSelect = '';
-  }, []);
-
-  const resize = useCallback((e: MouseEvent) => {
-    if (!isResizing.current || !colRef.current) return;
-    const containerRect = colRef.current.getBoundingClientRect();
-    const newHeight = ((e.clientY - containerRect.top) / containerRect.height) * 100;
-    setEditorHeightPercent(Math.min(Math.max(newHeight, 20), 80));
-  }, []);
-
-  useEffect(() => {
-    window.addEventListener('mousemove', resize);
-    window.addEventListener('mouseup', stopResizing);
-    return () => {
-      window.removeEventListener('mousemove', resize);
-      window.removeEventListener('mouseup', stopResizing);
-    };
-  }, [resize, stopResizing]);
-
   const handlePlay = () => {
-    if (status === GameStatus.GAME_OVER || status === GameStatus.STOPPED) {
-        restartMatch();
+    audio.initialize(); // Initialize audio context on user gesture
+    
+    if (status === GameStatus.READY) {
+      // From READY: Just start with current positions
+      setStatus(GameStatus.RUNNING);
+    } else if (status === GameStatus.GAME_OVER || status === GameStatus.STOPPED) {
+      // From STOPPED/GAME_OVER: Full scramble (Quick Play)
+      scrambleAndReset();
+      setStatus(GameStatus.RUNNING);
     }
-    setStatus(GameStatus.RUNNING);
   };
 
   const handleReset = () => {
-    setStatus(GameStatus.STOPPED);
+    audio.initialize(); // Initialize audio context on user gesture
+    setStatus(GameStatus.READY);
     scrambleAndReset();
   };
 
@@ -262,6 +175,7 @@ export default function App() {
       case GameStatus.RUNNING: return 'border-green-500 text-green-400 bg-green-950/30';
       case GameStatus.PAUSED: return 'border-amber-500 text-amber-400 bg-amber-950/30';
       case GameStatus.GAME_OVER: return 'border-red-500 text-red-400 bg-red-950/30';
+      case GameStatus.READY: return 'border-cyan-500 text-cyan-400 bg-cyan-950/30';
       default: return 'border-slate-700 text-slate-400 bg-slate-900/50';
     }
   };
@@ -271,7 +185,8 @@ export default function App() {
       case GameStatus.RUNNING: return 'LIVE SIMULATION';
       case GameStatus.PAUSED: return 'SIMULATION PAUSED';
       case GameStatus.GAME_OVER: return 'BATTLE ENDED';
-      default: return 'SYSTEM READY';
+      case GameStatus.READY: return 'ARENA READY';
+      default: return 'SYSTEM STOPPED';
     }
   };
 
@@ -328,7 +243,7 @@ export default function App() {
           {/* Status Bar */}
           <div className={`shrink-0 h-12 rounded-lg border flex items-center justify-between px-6 shadow-sm transition-colors duration-300 ${getStatusColor()}`}>
              <div className="font-display font-bold tracking-widest flex items-center gap-3">
-                <span className={`w-2 h-2 rounded-full ${status === GameStatus.RUNNING ? 'bg-green-500 animate-pulse' : (status === GameStatus.PAUSED ? 'bg-amber-500' : 'bg-slate-600')}`}></span>
+                <span className={`w-2 h-2 rounded-full ${status === GameStatus.RUNNING ? 'bg-green-500 animate-pulse' : (status === GameStatus.PAUSED ? 'bg-amber-500' : (status === GameStatus.READY ? 'bg-cyan-500' : 'bg-slate-600'))}`}></span>
                 {getStatusText()}
              </div>
              <div className="font-mono text-xs opacity-70">

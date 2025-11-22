@@ -2,6 +2,7 @@
 import { RobotState, OpCode, Instruction } from '../types';
 import { ARENA_WIDTH, ARENA_HEIGHT } from '../constants';
 import { Compiler } from './compiler';
+import { audio } from './audio';
 
 export class VM {
   static createRobot(id: string, color: string, code: string, x: number, y: number): RobotState {
@@ -9,10 +10,18 @@ export class VM {
     
     const regs = new Map<string, number>();
     
+    // Randomize initial orientation
+    const startAngle = Math.floor(Math.random() * 360);
+    const startTurret = Math.floor(Math.random() * 360);
+
     // 1. Initialize System Registers (Read/Write & Read-Only)
     // These are the ONLY "official" registers.
     const systemRegs = ['X', 'Y', 'SPEED', 'ANGLE', 'TURRET', 'SHOOT', 'RADAR', 'HEAT', 'TIME', 'HEALTH'];
     systemRegs.forEach(r => regs.set(r, 0));
+    
+    // Set random starts in registers so the physics engine picks them up immediately
+    regs.set('ANGLE', startAngle);
+    regs.set('TURRET', startTurret);
 
     // 2. Dynamically scan program for User Variables
     // Any argument that is NOT a Number, NOT a Label, and NOT a System Register is a User Variable.
@@ -35,7 +44,12 @@ export class VM {
     });
 
     return {
-      id, color, x, y, angle: 0, speed: 0, turretAngle: 0, desiredTurretAngle: 0,
+      id, color, x, y, 
+      angle: startAngle, 
+      desiredAngle: startAngle,
+      speed: 0, 
+      turretAngle: startTurret, 
+      desiredTurretAngle: startTurret,
       health: 100, energy: 100, radius: 20,
       heat: 0,
       overheated: false,
@@ -82,9 +96,9 @@ export class VM {
     // Clamp Speed 0-10
     bot.speed = Math.max(0, Math.min(10, bot.registers.get('SPEED') || 0));
     
-    // Normalize Angles 0-360
+    // Set Desired Body Angle (Physics loop handles smoothness)
     let angle = bot.registers.get('ANGLE') || 0;
-    bot.angle = (angle % 360 + 360) % 360;
+    bot.desiredAngle = (angle % 360 + 360) % 360;
     
     // Set Desired Turret Angle from Register (Physics loop handles smoothness)
     let turret = bot.registers.get('TURRET') || 0;
@@ -147,6 +161,9 @@ export class VM {
         // Visual Event Tracking
         bot.lastScanAngle = (scanAngle % 360 + 360) % 360;
         bot.lastScanTime = bot.registers.get('TIME') || 0;
+        
+        // NOTE: Audio removed at user request (too noisy)
+        // audio.playScan();
         break;
     }
   }
