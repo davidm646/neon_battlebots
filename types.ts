@@ -42,8 +42,13 @@ export interface RobotState {
   radius: number;
   
   // Weapon System
-  activeWeapon: number; // 1 = Projectile, 2 = Laser
-  ammo: Record<number, number>; // Inventory: { 1: 100, 2: 999 }
+  activeWeapon: number; // 1 = Projectile, 2 = Laser, 3 = Missile
+  ammo: Record<number, number>; // Inventory: { 1: 100, 2: 999, 3: 3 }
+  missileReloadTimer: number; // Frames until next missile can be fired
+
+  // Missile Lock System
+  targetLockId: string | null; // ID of the bot last detected by Radar
+  lockTimer: number;           // Frames remaining on the lock
 
   // Heat System
   heat: number;        // 0-100
@@ -76,6 +81,12 @@ export interface Projectile {
   vy: number;
   damage: number;
   active: boolean;
+}
+
+export interface Missile extends Projectile {
+  targetId: string | null; // If set, missile will steer towards this bot
+  angle: number;           // Current flight angle (degrees)
+  life: number;            // Frames until fuel runs out
 }
 
 export interface LaserBeam {

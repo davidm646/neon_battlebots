@@ -61,6 +61,13 @@ export const DocsCard: React.FC = () => {
                   <div className="text-slate-500 text-[9px]">Heat: 40 • Dmg: 8 • Ammo: ∞</div>
                   <div className="text-slate-500 text-[9px]">Instant Hitscan. High Heat cost.</div>
                 </div>
+                <div className="bg-slate-900 p-2 rounded border-l-2 border-pink-500">
+                  <div className="text-pink-400 font-bold text-[10px]">WEAPON 3: MISSILE</div>
+                  <div className="text-slate-500 text-[9px]">Heat: 50 • Dmg: 30 • Ammo: 3</div>
+                  <div className="text-slate-500 text-[9px]">
+                    SCAN to Lock-on (3s lock). Tracks target.
+                  </div>
+                </div>
               </div>
             </section>
 
@@ -114,7 +121,7 @@ JEQ PATROL     ; Jumps ONLY if radar == 0
                   { op: 'JGT', args: 'lbl', d: 'Jump if a > b' },
                   { op: 'JLT', args: 'lbl', d: 'Jump if a < b' },
                   { op: 'JEQ', args: 'lbl', d: 'Jump if a == b' },
-                  { op: 'SCAN', args: 'deg', d: 'Scan dist -> RADAR' },
+                  { op: 'SCAN', args: 'deg', d: 'Scan dist. LOCKS ON if target found.' },
                 ].map((r, i) => (
                   <tr key={i} className="border-b border-slate-800/50">
                     <td className="py-1.5 text-cyan-400 font-bold">{r.op}</td>
@@ -149,7 +156,7 @@ JEQ PATROL     ; Jumps ONLY if radar == 0
                     { name: 'SPEED', r: '0-10', d: 'Engine power' },
                     { name: 'ANGLE', r: '0-360', d: 'Body Direction' },
                     { name: 'TURRET', r: '0-360', d: 'Gun Direction' },
-                    { name: 'WEAPON', r: '1-2', d: '1=Slug, 2=Laser' },
+                    { name: 'WEAPON', r: '1-3', d: '1=Slug, 2=Laser, 3=Msle' },
                     { name: 'SHOOT', r: '0/1', d: '1 = Fire Active Weapon' },
                   ].map((reg, i) => (
                     <div key={i} className="flex items-center justify-between bg-slate-800 p-2 rounded text-[10px]">

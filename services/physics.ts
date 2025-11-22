@@ -1,5 +1,5 @@
 
-import { RobotState, Projectile, Explosion, LaserBeam } from '../types';
+import { RobotState, Projectile, Explosion, LaserBeam, Missile } from '../types';
 import { VM } from './vm';
 import { audio } from './audio';
 import { 
@@ -8,17 +8,18 @@ import {
   COLLISION_DAMAGE_FACTOR, WALL_DAMAGE_FACTOR, COLLISION_BOUNCE,
   COLLISION_DAMAGE_THRESHOLD, COLLISION_COOLDOWN,
   LASER_DAMAGE, LASER_HEAT, LASER_FADE_FRAMES, LASER_COLOR, SCAN_RANGE,
-  WEAPON_PROJECTILE, WEAPON_LASER
+  WEAPON_PROJECTILE, WEAPON_LASER, WEAPON_MISSILE,
+  MISSILE_SPEED, MISSILE_TURN_RATE, MISSILE_DAMAGE, MISSILE_HEAT, MISSILE_LIFE, MISSILE_RELOAD_TIME
 } from '../constants';
 
 export class PhysicsEngine {
   static update(
     bots: RobotState[], 
-    projectiles: Projectile[], 
+    projectiles: (Projectile | Missile)[], 
     explosions: Explosion[],
     lasers: LaserBeam[] = [],
     cycles: number = 5
-  ): { bots: RobotState[], projectiles: Projectile[], explosions: Explosion[], lasers: LaserBeam[] } {
+  ): { bots: RobotState[], projectiles: (Projectile | Missile)[], explosions: Explosion[], lasers: LaserBeam[] } {
     
     // Clone arrays
     const currentBots = [...bots];
@@ -39,7 +40,7 @@ export class PhysicsEngine {
       // Aggregate speed for audio
       totalBotSpeed += bot.speed;
 
-      // Cooldowns
+      // Cooldowns and Decay
       if (bot.heat > 0) {
         bot.heat = Math.max(0, bot.heat - HEAT_DECAY);
       }
@@ -48,6 +49,15 @@ export class PhysicsEngine {
       }
       if (bot.collisionCooldown > 0) {
         bot.collisionCooldown--;
+      }
+      if (bot.lockTimer > 0) {
+        bot.lockTimer--;
+        if (bot.lockTimer === 0) {
+           bot.targetLockId = null; // Lock expired
+        }
+      }
+      if (bot.missileReloadTimer > 0) {
+        bot.missileReloadTimer--;
       }
 
       // Execute VM
@@ -112,20 +122,18 @@ export class PhysicsEngine {
 
                  audio.playShoot();
                  bot.heat += HEAT_PER_SHOT;
-                 bot.ammo[activeWeapon]--; // Deduct Ammo
+                 bot.ammo[activeWeapon]--; 
              } 
              // WEAPON 2: Laser
              else if (activeWeapon === WEAPON_LASER) {
-                 // Raycast Logic
+                 // ... Laser logic ... (omitted for brevity in XML, kept same conceptually)
                  let closestDist = SCAN_RANGE;
                  let hitX = barrelTipX + Math.cos(turretRad) * SCAN_RANGE;
                  let hitY = barrelTipY + Math.sin(turretRad) * SCAN_RANGE;
                  let hitBot: RobotState | null = null;
-
                  const dirX = Math.cos(turretRad);
                  const dirY = Math.sin(turretRad);
 
-                 // Wall Checks
                  if (dirX !== 0) {
                     let wallX = dirX > 0 ? ARENA_WIDTH : 0;
                     let dist = (wallX - barrelTipX) / dirX;
@@ -151,27 +159,22 @@ export class PhysicsEngine {
                     }
                  }
 
-                 // Bot Checks
                  currentBots.forEach(other => {
                    if (other.id === bot.id || other.health <= 0) return;
-                   
                    const fX = barrelTipX - other.x;
                    const fY = barrelTipY - other.y;
-                   
                    const a = dirX * dirX + dirY * dirY;
                    const b = 2 * (fX * dirX + fY * dirY);
                    const c = (fX * fX + fY * fY) - (ROBOT_RADIUS * ROBOT_RADIUS);
-                   
                    let discriminant = b*b - 4*a*c;
                    
                    if(discriminant >= 0) {
                      discriminant = Math.sqrt(discriminant);
                      const t1 = (-b - discriminant) / (2*a);
                      const t2 = (-b + discriminant) / (2*a);
-                     
                      let tHit = -1;
-                     if (t1 >= 0) tHit = t1;
-                     else if (t2 >= 0) tHit = t2; // Inside hit
+                     if (t1 >= 0) tHit = t1; // Gun is outside
+                     else if (t2 >= 0) tHit = t2; // Gun is inside, use exit point
                      
                      if(tHit >= 0 && tHit < closestDist) {
                         closestDist = tHit;
@@ -205,7 +208,31 @@ export class PhysicsEngine {
 
                  audio.playLaser();
                  bot.heat += LASER_HEAT;
-                 // Laser is unlimited, no ammo deduction
+             }
+             // WEAPON 3: Homing Missile
+             else if (activeWeapon === WEAPON_MISSILE) {
+                 // Check Reload Timer
+                 if (bot.missileReloadTimer === 0) {
+                    const missile: Missile = {
+                        id: Math.random().toString(),
+                        ownerId: bot.id,
+                        x: barrelTipX,
+                        y: barrelTipY,
+                        vx: Math.cos(turretRad) * MISSILE_SPEED,
+                        vy: Math.sin(turretRad) * MISSILE_SPEED,
+                        angle: bot.turretAngle,
+                        damage: MISSILE_DAMAGE,
+                        active: true,
+                        targetId: (bot.lockTimer > 0) ? bot.targetLockId : null, // Lock On Logic
+                        life: MISSILE_LIFE
+                    };
+                    currentProjs.push(missile);
+
+                    audio.playShoot(); // Should ideally be a 'Launch' sound
+                    bot.heat += MISSILE_HEAT;
+                    bot.ammo[activeWeapon]--;
+                    bot.missileReloadTimer = MISSILE_RELOAD_TIME;
+                 }
              }
          }
 
@@ -219,11 +246,9 @@ export class PhysicsEngine {
     
     audio.updateEngine(totalBotSpeed);
 
-    // 2. Collision Resolution
+    // 2. Collision Resolution (Omitted for brevity - identical to previous)
     currentBots.forEach((bot, i) => {
        if (bot.health <= 0) return;
-       
-       // Wall
        let hitWall = false;
        if (bot.x < ROBOT_RADIUS) { bot.x = ROBOT_RADIUS; hitWall = true; } 
        else if (bot.x > ARENA_WIDTH - ROBOT_RADIUS) { bot.x = ARENA_WIDTH - ROBOT_RADIUS; hitWall = true; }
@@ -239,35 +264,27 @@ export class PhysicsEngine {
          bot.speed = Math.floor(bot.speed * COLLISION_BOUNCE);
          bot.registers.set('SPEED', bot.speed);
        }
-
-       // Bots
        for (let j = i + 1; j < currentBots.length; j++) {
          const other = currentBots[j];
          if (other.health <= 0) continue;
-
          const dx = other.x - bot.x;
          const dy = other.y - bot.y;
          const dist = Math.sqrt(dx*dx + dy*dy);
          const minDist = ROBOT_RADIUS * 2;
-
          if (dist < minDist) {
            const angle = Math.atan2(dy, dx);
            const overlap = minDist - dist;
            const moveX = (Math.cos(angle) * overlap) / 2;
            const moveY = (Math.sin(angle) * overlap) / 2;
-           
            bot.x -= moveX; bot.y -= moveY;
            other.x += moveX; other.y += moveY;
-
            const v1x = Math.cos(bot.angle * Math.PI / 180) * bot.speed;
            const v1y = Math.sin(bot.angle * Math.PI / 180) * bot.speed;
            const v2x = Math.cos(other.angle * Math.PI / 180) * other.speed;
            const v2y = Math.sin(other.angle * Math.PI / 180) * other.speed;
-
            const relVx = v1x - v2x;
            const relVy = v1y - v2y;
            const impactSpeed = Math.sqrt(relVx * relVx + relVy * relVy);
-
            if (impactSpeed > COLLISION_DAMAGE_THRESHOLD) {
               if (bot.collisionCooldown === 0 && other.collisionCooldown === 0) {
                  const damage = impactSpeed * COLLISION_DAMAGE_FACTOR;
@@ -276,13 +293,9 @@ export class PhysicsEngine {
                  bot.collisionCooldown = COLLISION_COOLDOWN;
                  other.collisionCooldown = COLLISION_COOLDOWN;
                  audio.playCrash();
-                 currentExplosions.push({
-                    id: Math.random().toString(),
-                    x: bot.x + dx/2, y: bot.y + dy/2, radius: 10, maxRadius: 25, life: 1, color: '#cbd5e1'
-                 });
+                 currentExplosions.push({ id: Math.random().toString(), x: bot.x + dx/2, y: bot.y + dy/2, radius: 10, maxRadius: 25, life: 1, color: '#cbd5e1' });
               }
            }
-
            bot.speed = Math.floor(bot.speed * COLLISION_BOUNCE);
            other.speed = Math.floor(other.speed * COLLISION_BOUNCE);
            bot.registers.set('SPEED', bot.speed);
@@ -291,8 +304,51 @@ export class PhysicsEngine {
        }
     });
 
-    // 3. Projectiles
+    // 3. Projectile & Missile Updates
     currentProjs.forEach(p => {
+      const isMissile = (p as Missile).targetId !== undefined;
+      
+      if (isMissile) {
+         const m = p as Missile;
+         m.life--;
+         if (m.life <= 0) m.active = false;
+
+         // Homing Logic
+         if (m.targetId && m.active) {
+             const target = currentBots.find(b => b.id === m.targetId);
+             if (target && target.health > 0) {
+                 const dx = target.x - m.x;
+                 const dy = target.y - m.y;
+                 const angleToTarget = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+                 let currentAngle = m.angle;
+                 
+                 let diff = angleToTarget - currentAngle;
+                 while (diff <= -180) diff += 360;
+                 while (diff > 180) diff -= 360;
+
+                 if (Math.abs(diff) < MISSILE_TURN_RATE) {
+                     currentAngle = angleToTarget;
+                 } else {
+                     currentAngle += Math.sign(diff) * MISSILE_TURN_RATE;
+                 }
+                 m.angle = (currentAngle + 360) % 360;
+                 
+                 // Update Velocity based on new angle
+                 const rad = m.angle * Math.PI / 180;
+                 m.vx = Math.cos(rad) * MISSILE_SPEED;
+                 m.vy = Math.sin(rad) * MISSILE_SPEED;
+             }
+         }
+         
+         // Smoke Trail
+         if (m.life % 10 === 0) { // Spawn smoke every 10 frames
+             currentExplosions.push({
+                 id: Math.random().toString(),
+                 x: m.x, y: m.y, radius: 3, maxRadius: 8, life: 0.5, color: '#94a3b8'
+             });
+         }
+      }
+
       p.x += p.vx;
       p.y += p.vy;
 
@@ -306,22 +362,33 @@ export class PhysicsEngine {
         const dy = p.y - bot.y;
         const dist = Math.sqrt(dx*dx + dy*dy);
         
-        if (dist < ROBOT_RADIUS + PROJECTILE_RADIUS) {
+        if (dist < ROBOT_RADIUS + PROJECTILE_RADIUS + (isMissile ? 5 : 0)) {
           p.active = false;
           bot.health -= p.damage;
-          audio.playHit();
+          audio.playHit(); // Using explosion-like hit sound
+          
+          if (isMissile) {
+             // Bigger explosion for missile
+             currentExplosions.push({
+                id: Math.random().toString(),
+                x: p.x, y: p.y, radius: 15, maxRadius: 40, life: 1, color: '#f43f5e'
+             });
+             audio.playExplosion(); // Full explosion sound for missile impact
+          } else {
+             currentExplosions.push({
+                id: Math.random().toString(),
+                x: p.x, y: p.y, radius: 5, maxRadius: 20, life: 1, color: '#f59e0b'
+             });
+          }
+          
           if (bot.health <= 0) audio.playExplosion();
-          currentExplosions.push({
-            id: Math.random().toString(),
-            x: p.x, y: p.y, radius: 5, maxRadius: 20, life: 1, color: '#f59e0b'
-          });
         }
       });
     });
     currentProjs = currentProjs.filter(p => p.active);
 
     // 4. Explosions
-    currentExplosions.forEach(e => { e.life -= 0.05; e.radius += 2; });
+    currentExplosions.forEach(e => { e.life -= 0.05; e.radius += 1; });
     currentExplosions = currentExplosions.filter(e => e.life > 0);
 
     // 5. Lasers Update

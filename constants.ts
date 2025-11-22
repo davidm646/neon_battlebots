@@ -11,8 +11,11 @@ export const SCAN_RANGE = 1200; // Increased to ensure corner-to-corner coverage
 // Weapon System
 export const WEAPON_PROJECTILE = 1;
 export const WEAPON_LASER = 2;
+export const WEAPON_MISSILE = 3;
+
 export const AMMO_PROJECTILE = 50; // Limited ammo for standard gun
 export const AMMO_LASER = 999;     // Effectively unlimited
+export const AMMO_MISSILE = 3;     // Very scarce
 
 // Collision Physics
 export const COLLISION_DAMAGE_FACTOR = 0.5; // Reduced factor
@@ -31,6 +34,15 @@ export const LASER_DAMAGE = 8;       // Slightly less than projectile (10)
 export const LASER_HEAT = 40;        // High heat cost
 export const LASER_FADE_FRAMES = 10; // Visual duration
 export const LASER_COLOR = '#22d3ee'; // Cyan
+
+// Missile Weapon Balance
+export const MISSILE_SPEED = 6;      // Slow (Half projectile speed)
+export const MISSILE_TURN_RATE = 3;  // Degrees per frame steering
+export const MISSILE_DAMAGE = 30;    // Heavy damage
+export const MISSILE_HEAT = 50;      // High heat
+export const MISSILE_LIFE = 180;     // 3 Seconds max flight time
+export const MISSILE_LOCK_DURATION = 180; // 3 Seconds lock retention
+export const MISSILE_RELOAD_TIME = 60; // 1 Second between launches
 
 // Physics Balance
 export const TURRET_SPEED = 10; // Degrees per frame
@@ -68,7 +80,7 @@ SCAN angle    : Puts distance in RADAR (0 if none)
 
 System Registers (Controls):
 SPEED (0-10), ANGLE (0-360), TURRET (0-360)
-WEAPON (1=Slug, 2=Laser), SHOOT (1=Fire)
+WEAPON (1=Slug, 2=Laser, 3=Missile), SHOOT (1=Fire)
 
 System Registers (Sensors):
 RADAR, HEAT, AMMO, X, Y, HEALTH, TIME

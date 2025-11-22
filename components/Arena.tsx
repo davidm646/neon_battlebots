@@ -1,11 +1,11 @@
 
 import React, { useEffect, useRef } from 'react';
-import { RobotState, Projectile, Explosion, GameConfig, GameStatus, LaserBeam } from '../types';
-import { ARENA_WIDTH, ARENA_HEIGHT, ROBOT_RADIUS, SCAN_RANGE } from '../constants';
+import { RobotState, Projectile, Explosion, GameConfig, GameStatus, LaserBeam, Missile } from '../types';
+import { ARENA_WIDTH, ARENA_HEIGHT, ROBOT_RADIUS, SCAN_RANGE, WEAPON_MISSILE } from '../constants';
 
 interface ArenaProps {
   bots: RobotState[];
-  projectiles: Projectile[];
+  projectiles: (Projectile | Missile)[];
   explosions: Explosion[];
   lasers?: LaserBeam[];
   config: GameConfig;
@@ -126,6 +126,29 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, las
       bots.forEach(bot => {
         if (bot.health <= 0) return; // Dead bots don't render or render as wreckage
 
+        // --- TARGET LOCK RETICLE ---
+        // If this bot is targeted by another bot's active lock, draw a reticle
+        // Only draw if the attacker is using Missiles AND HAS AMMO
+        bots.forEach(other => {
+           if (
+             other.targetLockId === bot.id && 
+             other.health > 0 && 
+             other.activeWeapon === WEAPON_MISSILE &&
+             (other.ammo[WEAPON_MISSILE] || 0) > 0
+            ) {
+              ctx.save();
+              ctx.translate(bot.x, bot.y);
+              ctx.strokeStyle = '#f43f5e'; // Rose color
+              ctx.lineWidth = 2;
+              ctx.setLineDash([4, 4]);
+              // Rotating Reticle
+              const angle = (Date.now() / 1000) % (Math.PI * 2);
+              ctx.rotate(angle);
+              ctx.strokeRect(-ROBOT_RADIUS - 5, -ROBOT_RADIUS - 5, (ROBOT_RADIUS + 5)*2, (ROBOT_RADIUS + 5)*2);
+              ctx.restore();
+           }
+        });
+
         // --- SCANNER PULSE EFFECT ---
         const currentTime = bot.registers.get('TIME') || 0;
         const timeSinceScan = currentTime - bot.lastScanTime;
@@ -245,15 +268,42 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, las
         ctx.restore();
       });
 
-      // Draw Projectiles
+      // Draw Projectiles & Missiles
       projectiles.forEach(p => {
+        const isMissile = (p as Missile).targetId !== undefined;
+
         ctx.save();
-        ctx.fillStyle = '#fbbf24';
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = 'orange';
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 4, 0, Math.PI*2);
-        ctx.fill();
+        ctx.translate(p.x, p.y);
+        
+        if (isMissile) {
+          const m = p as Missile;
+          ctx.rotate((m.angle * Math.PI) / 180);
+          ctx.fillStyle = '#f43f5e'; // Rose/Pink missile
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = '#f43f5e';
+          
+          // Triangle shape
+          ctx.beginPath();
+          ctx.moveTo(6, 0);
+          ctx.lineTo(-4, -4);
+          ctx.lineTo(-4, 4);
+          ctx.closePath();
+          ctx.fill();
+          
+          // Thruster glow
+          ctx.fillStyle = 'white';
+          ctx.beginPath();
+          ctx.arc(-4, 0, 2, 0, Math.PI*2);
+          ctx.fill();
+        } else {
+          // Standard Projectile
+          ctx.fillStyle = '#fbbf24';
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = 'orange';
+          ctx.beginPath();
+          ctx.arc(0, 0, 4, 0, Math.PI*2);
+          ctx.fill();
+        }
         ctx.restore();
       });
 

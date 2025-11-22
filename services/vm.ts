@@ -1,6 +1,6 @@
 
 import { RobotState, OpCode, Instruction } from '../types';
-import { ARENA_WIDTH, ARENA_HEIGHT, AMMO_PROJECTILE, AMMO_LASER, WEAPON_PROJECTILE, WEAPON_LASER } from '../constants';
+import { ARENA_WIDTH, ARENA_HEIGHT, AMMO_PROJECTILE, AMMO_LASER, AMMO_MISSILE, WEAPON_PROJECTILE, WEAPON_LASER, WEAPON_MISSILE, MISSILE_LOCK_DURATION } from '../constants';
 import { Compiler } from './compiler';
 import { audio } from './audio';
 
@@ -57,8 +57,14 @@ export class VM {
       activeWeapon: WEAPON_PROJECTILE,
       ammo: {
         [WEAPON_PROJECTILE]: AMMO_PROJECTILE,
-        [WEAPON_LASER]: AMMO_LASER
+        [WEAPON_LASER]: AMMO_LASER,
+        [WEAPON_MISSILE]: AMMO_MISSILE
       },
+      missileReloadTimer: 0,
+      
+      // Missile Lock
+      targetLockId: null,
+      lockTimer: 0,
 
       heat: 0,
       overheated: false,
@@ -117,7 +123,7 @@ export class VM {
 
     // Weapon Selection
     const requestedWeapon = bot.registers.get('WEAPON');
-    if (requestedWeapon && (requestedWeapon === 1 || requestedWeapon === 2)) {
+    if (requestedWeapon && [WEAPON_PROJECTILE, WEAPON_LASER, WEAPON_MISSILE].includes(requestedWeapon)) {
       bot.activeWeapon = requestedWeapon;
     }
   }
@@ -179,6 +185,7 @@ export class VM {
 
   private static performScan(bot: RobotState, angle: number, allBots: RobotState[]): number {
     let minDist = 9999;
+    let foundBotId: string | null = null;
 
     for (const other of allBots) {
       if (other.id === bot.id || other.health <= 0) continue;
@@ -194,8 +201,17 @@ export class VM {
       const wrappedDiff = Math.min(angleDiff, 360 - angleDiff);
 
       if (wrappedDiff < 2.5) {
-        if (dist < minDist) minDist = dist;
+        if (dist < minDist) {
+           minDist = dist;
+           foundBotId = other.id;
+        }
       }
+    }
+    
+    // Target Lock Logic
+    if (foundBotId) {
+      bot.targetLockId = foundBotId;
+      bot.lockTimer = MISSILE_LOCK_DURATION;
     }
 
     return minDist === 9999 ? 0 : Math.floor(minDist);
