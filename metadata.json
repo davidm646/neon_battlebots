@@ -1,0 +1,5 @@
+{
+  "name": "Neon BattleBots: Code Arena",
+  "description": "A modern, web-based homage to the classic RobotWar. Program your battle bot using a custom assembly language or let Gemini AI generate combat strategies for you. Watch them fight in a real-time neon arena.",
+  "requestFramePermissions": []
+}
