@@ -123,3 +123,9 @@ export enum GameStatus {
   PAUSED = 'PAUSED',
   GAME_OVER = 'GAME_OVER'
 }
+
+export interface ArenaPreset {
+  name: string;
+  width: number;
+  height: number;
+}

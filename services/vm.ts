@@ -1,6 +1,6 @@
 
 import { RobotState, OpCode, Instruction } from '../types';
-import { ARENA_WIDTH, ARENA_HEIGHT, AMMO_PROJECTILE, AMMO_LASER, AMMO_MISSILE, WEAPON_PROJECTILE, WEAPON_LASER, WEAPON_MISSILE, MISSILE_LOCK_DURATION } from '../constants';
+import { AMMO_PROJECTILE, AMMO_LASER, AMMO_MISSILE, WEAPON_PROJECTILE, WEAPON_LASER, WEAPON_MISSILE, MISSILE_LOCK_DURATION } from '../constants';
 import { Compiler } from './compiler';
 import { audio } from './audio';
 

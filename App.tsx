@@ -4,8 +4,8 @@ import { Arena } from './components/Arena';
 import { CodeEditor } from './components/CodeEditor';
 import { ControlPanel } from './components/ControlPanel';
 import { DebuggerPanel } from './components/DebuggerPanel';
-import { GameStatus, RobotState, Projectile, Explosion, BotConfig, LaserBeam } from './types';
-import { ARENA_WIDTH, ARENA_HEIGHT, DEFAULT_BOT_SCRIPT, TARGET_BOT_SCRIPT, BOT_PALETTE } from './constants';
+import { GameStatus, RobotState, Projectile, Explosion, BotConfig, LaserBeam, ArenaPreset } from './types';
+import { DEFAULT_BOT_SCRIPT, TARGET_BOT_SCRIPT, BOT_PALETTE, ARENA_PRESETS } from './constants';
 import { VM } from './services/vm';
 import { PhysicsEngine } from './services/physics';
 import { audio } from './services/audio';
@@ -17,6 +17,9 @@ export default function App() {
   // --- Roster State (The Source of Truth for Bots) ---
   const [roster, setRoster] = useState<BotConfig[]>([]);
   const [selectedBotId, setSelectedBotId] = useState<string | null>(null);
+
+  // --- Game Config State ---
+  const [arenaSize, setArenaSize] = useState<ArenaPreset>(ARENA_PRESETS.DUEL);
 
   // --- Game Simulation State ---
   const [status, setStatus] = useState<GameStatus>(GameStatus.STOPPED);
@@ -36,7 +39,7 @@ export default function App() {
   const { heightPercent: editorHeightPercent, startResizing, containerRef: colRef } = useResizable(60);
   
   // Sync Roster changes to Runtime Bots
-  useRosterSync(roster, status, setBots, botsRef);
+  useRosterSync(roster, status, setBots, botsRef, arenaSize.width, arenaSize.height);
 
   // --- Helper Functions ---
 
@@ -83,7 +86,8 @@ export default function App() {
     const startBots: RobotState[] = [];
     
     roster.forEach((config) => {
-      const { x, y } = getSafeSpawnPoint(startBots);
+      // Use Current Arena Size for safe spawn logic
+      const { x, y } = getSafeSpawnPoint(startBots, arenaSize.width, arenaSize.height);
       const bot = VM.createRobot(config.id, config.color, config.code, x, y);
       // Ensure Time starts at 0
       bot.registers.set('TIME', 0);
@@ -98,7 +102,7 @@ export default function App() {
     projectilesRef.current = [];
     explosionsRef.current = [];
     lasersRef.current = [];
-  }, [roster]);
+  }, [roster, arenaSize]); // Dependency on arenaSize ensures we re-scramble if size changes
 
 
   // --- Physics Loop ---
@@ -109,7 +113,9 @@ export default function App() {
       projectilesRef.current,
       explosionsRef.current,
       lasersRef.current,
-      cycles
+      cycles,
+      arenaSize.width, // Pass dynamic dimensions
+      arenaSize.height
     );
 
     botsRef.current = nextState.bots;
@@ -121,7 +127,7 @@ export default function App() {
     setProjectiles(nextState.projectiles);
     setExplosions(nextState.explosions);
     setLasers(nextState.lasers);
-  }, []);
+  }, [arenaSize]);
 
   // --- Game Loop ---
 
@@ -174,6 +180,27 @@ export default function App() {
     scrambleAndReset();
   };
 
+  const handleArenaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const key = e.target.value as keyof typeof ARENA_PRESETS;
+    setArenaSize(ARENA_PRESETS[key]);
+    // Auto-reset when changing map size to prevent bots being stuck out of bounds
+    setStatus(GameStatus.READY);
+    // We use a timeout to allow state to update before scrambling
+    setTimeout(() => {
+       // Logic inside scrambleAndReset depends on arenaSize, so we just trigger a re-render effect ideally
+       // But here we can just manually invoke logic or let the user hit reset.
+       // For better UX, we force a scramble next render cycle.
+    }, 0);
+  };
+  
+  // Re-scramble when arena size changes significantly if not running
+  useEffect(() => {
+     if (status === GameStatus.STOPPED || status === GameStatus.READY || status === GameStatus.GAME_OVER) {
+        scrambleAndReset();
+     }
+  }, [arenaSize, scrambleAndReset]);
+
+
   // --- Derived State ---
   const selectedBotConfig = roster.find(b => b.id === selectedBotId);
   const selectedBotRuntime = bots.find(b => b.id === selectedBotId);
@@ -207,7 +234,23 @@ export default function App() {
           <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded flex items-center justify-center font-bold text-white font-display">N</div>
           <h1 className="text-xl font-display font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500">NEON BATTLEBOTS</h1>
         </div>
-        <div className="text-xs font-mono text-slate-500 hidden sm:block">MULTI-BOT ARENA • REACT 18 • GEMINI AI</div>
+        
+        <div className="flex items-center gap-4">
+           <div className="flex items-center gap-2">
+             <span className="text-xs font-mono text-slate-500 uppercase">Arena:</span>
+             <select 
+               className="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded px-2 py-1 font-mono outline-none focus:border-cyan-500"
+               value={Object.keys(ARENA_PRESETS).find(key => ARENA_PRESETS[key as keyof typeof ARENA_PRESETS].width === arenaSize.width) || 'DUEL'}
+               onChange={handleArenaChange}
+               disabled={status === GameStatus.RUNNING || status === GameStatus.PAUSED}
+             >
+               {Object.entries(ARENA_PRESETS).map(([key, preset]) => (
+                 <option key={key} value={key}>{preset.name}</option>
+               ))}
+             </select>
+           </div>
+           <div className="text-xs font-mono text-slate-500 hidden sm:block">MULTI-BOT ARENA • GEMINI AI</div>
+        </div>
       </header>
 
       {/* Main Content */}
@@ -255,12 +298,12 @@ export default function App() {
                 {getStatusText()}
              </div>
              <div className="font-mono text-xs opacity-70">
-                BOTS ALIVE: {bots.filter(b => b.health > 0).length} / {bots.length}
+                MAP: {arenaSize.width}x{arenaSize.height} • BOTS: {bots.filter(b => b.health > 0).length} / {bots.length}
              </div>
           </div>
 
           {/* Arena Container */}
-          <div className="flex-1 flex flex-col items-center justify-center bg-slate-900/50 rounded-lg border border-slate-800 relative overflow-hidden shadow-inner min-h-0">
+          <div className="flex-1 flex flex-col items-center justify-center bg-slate-900/50 rounded-lg border border-slate-800 relative overflow-hidden shadow-inner min-h-0 p-4">
             {/* Overlays */}
             {status === GameStatus.GAME_OVER && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10 backdrop-blur-sm">
@@ -286,7 +329,7 @@ export default function App() {
               projectiles={projectiles} 
               explosions={explosions} 
               lasers={lasers}
-              config={{width: ARENA_WIDTH, height: ARENA_HEIGHT, fps: 60}} 
+              config={{width: arenaSize.width, height: arenaSize.height, fps: 60}} 
               status={status}
               onBotClick={setSelectedBotId}
             />

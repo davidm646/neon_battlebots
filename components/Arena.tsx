@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { RobotState, Projectile, Explosion, GameConfig, GameStatus, LaserBeam, Missile } from '../types';
-import { ARENA_WIDTH, ARENA_HEIGHT, ROBOT_RADIUS, SCAN_RANGE, WEAPON_MISSILE } from '../constants';
+import { ROBOT_RADIUS, SCAN_RANGE, WEAPON_MISSILE } from '../constants';
 
 interface ArenaProps {
   bots: RobotState[];
@@ -27,15 +27,13 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, las
     const clickX = (e.clientX - rect.left) * scaleX;
     const clickY = (e.clientY - rect.top) * scaleY;
 
-    // Check collision with any bot
-    // We iterate backwards to click "top" bots first if they overlap
     for (let i = bots.length - 1; i >= 0; i--) {
       const bot = bots[i];
       const dx = clickX - bot.x;
       const dy = clickY - bot.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      if (dist <= ROBOT_RADIUS * 1.5) { // Generous hit area
+      if (dist <= ROBOT_RADIUS * 1.5) { 
         onBotClick(bot.id);
         return;
       }
@@ -48,7 +46,7 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, las
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Render Loop (Visuals only, state is passed in props which updates on game tick)
+    // Render Loop
     const draw = () => {
       // Clear background
       ctx.fillStyle = '#0f172a'; // Slate-900
@@ -57,6 +55,7 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, las
       // Draw Grid
       ctx.strokeStyle = '#1e293b';
       ctx.lineWidth = 1;
+      // Draw up to 100 lines in each direction to handle huge maps without performance kill
       for(let x=0; x<=config.width; x+=50) {
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, config.height); ctx.stroke();
       }
@@ -73,7 +72,7 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, las
           ctx.translate(bot.x, bot.y);
           ctx.rotate((bot.turretAngle * Math.PI) / 180);
 
-          // Laser Sight (Center line) only - Cone removed as requested
+          // Laser Sight
           ctx.beginPath();
           ctx.moveTo(0, 0);
           ctx.lineTo(SCAN_RANGE, 0);
@@ -86,15 +85,13 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, las
         });
       }
 
-      // Draw Lasers (Before bots so they appear under them if starting from center, but physics starts at gun tip)
+      // Draw Lasers
       lasers.forEach(l => {
         let startX = l.x1;
         let startY = l.y1;
         
-        // If the laser belongs to a bot, attach the start point to the bot's current turret position
         if (l.ownerId) {
           const owner = bots.find(b => b.id === l.ownerId);
-          // Ensure bot is alive and valid before moving the laser origin
           if (owner && owner.health > 0) {
              const turretRad = (owner.turretAngle * Math.PI) / 180;
              startX = owner.x + Math.cos(turretRad) * 25;
@@ -103,32 +100,19 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, las
         }
 
         ctx.save();
-        ctx.globalAlpha = l.life; // Fade out
+        ctx.globalAlpha = l.life; 
         ctx.strokeStyle = l.color;
-        
-        // Inner Beam
         ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(startX, startY);
-        ctx.lineTo(l.x2, l.y2);
-        ctx.stroke();
-        
-        // Glow
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = l.color;
-        ctx.lineWidth = 4;
-        ctx.stroke();
-        
+        ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(l.x2, l.y2); ctx.stroke();
+        ctx.shadowBlur = 15; ctx.shadowColor = l.color; ctx.lineWidth = 4; ctx.stroke();
         ctx.restore();
       });
 
       // Draw Bots
       bots.forEach(bot => {
-        if (bot.health <= 0) return; // Dead bots don't render or render as wreckage
+        if (bot.health <= 0) return;
 
-        // --- TARGET LOCK RETICLE ---
-        // If this bot is targeted by another bot's active lock, draw a reticle
-        // Only draw if the attacker is using Missiles AND HAS AMMO
+        // Target Lock Reticle
         bots.forEach(other => {
            if (
              other.targetLockId === bot.id && 
@@ -138,10 +122,9 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, las
             ) {
               ctx.save();
               ctx.translate(bot.x, bot.y);
-              ctx.strokeStyle = '#f43f5e'; // Rose color
+              ctx.strokeStyle = '#f43f5e'; 
               ctx.lineWidth = 2;
               ctx.setLineDash([4, 4]);
-              // Rotating Reticle
               const angle = (Date.now() / 1000) % (Math.PI * 2);
               ctx.rotate(angle);
               ctx.strokeRect(-ROBOT_RADIUS - 5, -ROBOT_RADIUS - 5, (ROBOT_RADIUS + 5)*2, (ROBOT_RADIUS + 5)*2);
@@ -149,160 +132,85 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, las
            }
         });
 
-        // --- SCANNER PULSE EFFECT ---
+        // Scan Pulse
         const currentTime = bot.registers.get('TIME') || 0;
         const timeSinceScan = currentTime - bot.lastScanTime;
-        const FADE_FRAMES = 15; // Duration of scan pulse
+        const FADE_FRAMES = 15; 
         
         if (timeSinceScan >= 0 && timeSinceScan < FADE_FRAMES) {
            const opacity = 1 - (timeSinceScan / FADE_FRAMES);
            ctx.save();
            ctx.translate(bot.x, bot.y);
            ctx.rotate((bot.lastScanAngle * Math.PI) / 180);
-           
-           ctx.fillStyle = bot.color; // Use bot color for scan
-           ctx.globalAlpha = opacity * 0.2; // Fainter opacity
-           
-           // Draw a wide wedge/sector for the "Ping" effect
-           // Barely protruding from the bot
+           ctx.fillStyle = bot.color;
+           ctx.globalAlpha = opacity * 0.2;
            const PULSE_RADIUS = ROBOT_RADIUS * 2; 
-           const PULSE_WIDTH = 10; // Degrees +/- (20 degrees total)
-
+           const PULSE_WIDTH = 10;
            ctx.beginPath();
            ctx.moveTo(0, 0);
            ctx.arc(0, 0, PULSE_RADIUS, -PULSE_WIDTH * Math.PI / 180, PULSE_WIDTH * Math.PI / 180);
            ctx.lineTo(0, 0);
            ctx.fill();
-           
-           // Draw an edge line
-           ctx.globalAlpha = opacity * 0.4; // Fainter edge
+           ctx.globalAlpha = opacity * 0.4;
            ctx.strokeStyle = bot.color;
            ctx.lineWidth = 1;
            ctx.beginPath();
            ctx.arc(0, 0, PULSE_RADIUS, -PULSE_WIDTH * Math.PI / 180, PULSE_WIDTH * Math.PI / 180);
            ctx.stroke();
-
            ctx.restore();
         }
 
-        // --- RENDER BOT ---
+        // Render Bot
         ctx.save();
         ctx.translate(bot.x, bot.y);
         
-        // Bars Container (Unrotated)
-        // Health Bar
-        ctx.fillStyle = 'red';
-        ctx.fillRect(-20, -45, 40, 4);
-        ctx.fillStyle = '#22c55e';
-        ctx.fillRect(-20, -45, 40 * (bot.health / 100), 4);
+        // Bars
+        ctx.fillStyle = 'red'; ctx.fillRect(-20, -45, 40, 4);
+        ctx.fillStyle = '#22c55e'; ctx.fillRect(-20, -45, 40 * (bot.health / 100), 4);
+        ctx.fillStyle = '#334155'; ctx.fillRect(-20, -40, 40, 3);
+        ctx.fillStyle = bot.overheated ? '#ef4444' : '#f59e0b'; ctx.fillRect(-20, -40, 40 * (bot.heat / 100), 3);
 
-        // Heat Bar
-        ctx.fillStyle = '#334155'; // Bg
-        ctx.fillRect(-20, -40, 40, 3);
-        // Color shift from yellow to red based on heat
-        ctx.fillStyle = bot.overheated ? '#ef4444' : '#f59e0b';
-        ctx.fillRect(-20, -40, 40 * (bot.heat / 100), 3);
-
-        // Overheat Indicator
         if (bot.overheated) {
-           ctx.font = 'bold 10px monospace';
-           ctx.fillStyle = '#ef4444';
-           ctx.textAlign = 'center';
-           ctx.fillText('JAMMED!', 0, -50);
+           ctx.font = 'bold 10px monospace'; ctx.fillStyle = '#ef4444'; ctx.textAlign = 'center'; ctx.fillText('JAMMED!', 0, -50);
         }
 
-        // --- Bot Body (Neon Style) ---
+        // Chassis
         ctx.rotate((bot.angle * Math.PI) / 180);
-        
-        // Glow Effect
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = bot.color;
-
-        // Chassis (Stroke only for neon look)
-        ctx.fillStyle = '#0f172a'; // Dark fill to cover grid lines
-        ctx.strokeStyle = bot.color;
-        ctx.lineWidth = 2;
-        
+        ctx.shadowBlur = 10; ctx.shadowColor = bot.color;
+        ctx.fillStyle = '#0f172a'; ctx.strokeStyle = bot.color; ctx.lineWidth = 2;
         const r = ROBOT_RADIUS - 2;
-        ctx.beginPath();
-        ctx.roundRect(-r, -r, r * 2, r * 2, 4);
-        ctx.fill();
-        ctx.stroke();
+        ctx.beginPath(); ctx.roundRect(-r, -r, r * 2, r * 2, 4); ctx.fill(); ctx.stroke();
 
-        // Direction Indicator (Arrow inside chassis)
-        // Points towards positive X (Right)
+        // Arrow
         ctx.fillStyle = bot.color;
-        ctx.beginPath();
-        ctx.moveTo(r - 6, 0); // Tip
-        ctx.lineTo(-4, -8);   // Top back
-        ctx.lineTo(0, 0);     // Center notch
-        ctx.lineTo(-4, 8);    // Bottom back
-        ctx.closePath();
-        ctx.fill();
-        
+        ctx.beginPath(); ctx.moveTo(r - 6, 0); ctx.lineTo(-4, -8); ctx.lineTo(0, 0); ctx.lineTo(-4, 8); ctx.closePath(); ctx.fill();
         ctx.restore();
 
-        // --- Turret (Independent rotation) ---
+        // Turret
         ctx.save();
         ctx.translate(bot.x, bot.y);
         ctx.rotate((bot.turretAngle * Math.PI) / 180);
-        
-        ctx.shadowBlur = 5;
-        ctx.shadowColor = bot.overheated ? '#ef4444' : bot.color;
-        
-        // Simple Gun Barrel
-        ctx.strokeStyle = bot.overheated ? '#ef4444' : '#e2e8f0';
-        ctx.lineWidth = 3;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(26, 0);
-        ctx.stroke();
-        
-        // Small Pivot Point
-        ctx.fillStyle = bot.color;
-        ctx.beginPath();
-        ctx.arc(0, 0, 4, 0, Math.PI * 2);
-        ctx.fill();
-
+        ctx.shadowBlur = 5; ctx.shadowColor = bot.overheated ? '#ef4444' : bot.color;
+        ctx.strokeStyle = bot.overheated ? '#ef4444' : '#e2e8f0'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(26, 0); ctx.stroke();
+        ctx.fillStyle = bot.color; ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
       });
 
-      // Draw Projectiles & Missiles
+      // Draw Projectiles
       projectiles.forEach(p => {
         const isMissile = (p as Missile).targetId !== undefined;
-
         ctx.save();
         ctx.translate(p.x, p.y);
-        
         if (isMissile) {
           const m = p as Missile;
           ctx.rotate((m.angle * Math.PI) / 180);
-          ctx.fillStyle = '#f43f5e'; // Rose/Pink missile
-          ctx.shadowBlur = 10;
-          ctx.shadowColor = '#f43f5e';
-          
-          // Triangle shape
-          ctx.beginPath();
-          ctx.moveTo(6, 0);
-          ctx.lineTo(-4, -4);
-          ctx.lineTo(-4, 4);
-          ctx.closePath();
-          ctx.fill();
-          
-          // Thruster glow
-          ctx.fillStyle = 'white';
-          ctx.beginPath();
-          ctx.arc(-4, 0, 2, 0, Math.PI*2);
-          ctx.fill();
+          ctx.fillStyle = '#f43f5e'; ctx.shadowBlur = 10; ctx.shadowColor = '#f43f5e';
+          ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(-4, -4); ctx.lineTo(-4, 4); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(-4, 0, 2, 0, Math.PI*2); ctx.fill();
         } else {
-          // Standard Projectile
-          ctx.fillStyle = '#fbbf24';
-          ctx.shadowBlur = 10;
-          ctx.shadowColor = 'orange';
-          ctx.beginPath();
-          ctx.arc(0, 0, 4, 0, Math.PI*2);
-          ctx.fill();
+          ctx.fillStyle = '#fbbf24'; ctx.shadowBlur = 10; ctx.shadowColor = 'orange';
+          ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI*2); ctx.fill();
         }
         ctx.restore();
       });
@@ -310,11 +218,8 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, las
       // Draw Explosions
       explosions.forEach(exp => {
         ctx.save();
-        ctx.globalAlpha = exp.life;
-        ctx.fillStyle = exp.color;
-        ctx.beginPath();
-        ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI*2);
-        ctx.fill();
+        ctx.globalAlpha = exp.life; ctx.fillStyle = exp.color;
+        ctx.beginPath(); ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI*2); ctx.fill();
         ctx.restore();
       });
     };
@@ -328,6 +233,8 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, las
       width={config.width} 
       height={config.height}
       onClick={handleCanvasClick}
+      // Use CSS to force the canvas to fit the container, maintaining aspect ratio
+      style={{ maxWidth: '100%', maxHeight: '100%', aspectRatio: `${config.width}/${config.height}` }}
       className={`rounded-lg border-2 border-slate-700 shadow-2xl bg-slate-950 ${status !== GameStatus.RUNNING ? 'cursor-pointer' : 'cursor-default'}`}
     />
   );

@@ -1,14 +1,15 @@
-import { ARENA_WIDTH, ARENA_HEIGHT, ROBOT_RADIUS } from '../constants';
 
-export const getSafeSpawnPoint = (existingBots: {x: number, y: number}[]) => {
+import { ROBOT_RADIUS } from '../constants';
+
+export const getSafeSpawnPoint = (existingBots: {x: number, y: number}[], arenaWidth: number, arenaHeight: number) => {
   const margin = 50; // Safe distance from walls
   const minSeparation = ROBOT_RADIUS * 3; // Distance between centers (prevent overlaps)
   let attempts = 0;
   const maxAttempts = 100;
   
   while (attempts < maxAttempts) {
-    const x = margin + Math.random() * (ARENA_WIDTH - margin * 2);
-    const y = margin + Math.random() * (ARENA_HEIGHT - margin * 2);
+    const x = margin + Math.random() * (arenaWidth - margin * 2);
+    const y = margin + Math.random() * (arenaHeight - margin * 2);
     
     const collision = existingBots.some(b => {
       const dx = b.x - x;
@@ -22,7 +23,7 @@ export const getSafeSpawnPoint = (existingBots: {x: number, y: number}[]) => {
   
   // Fallback if arena is too crowded (rare)
   return { 
-      x: margin + Math.random() * (ARENA_WIDTH - margin * 2),
-      y: margin + Math.random() * (ARENA_HEIGHT - margin * 2)
+      x: margin + Math.random() * (arenaWidth - margin * 2),
+      y: margin + Math.random() * (arenaHeight - margin * 2)
   };
 };

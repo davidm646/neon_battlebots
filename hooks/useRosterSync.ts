@@ -8,7 +8,9 @@ export const useRosterSync = (
   roster: BotConfig[],
   status: GameStatus,
   setBots: React.Dispatch<React.SetStateAction<RobotState[]>>,
-  botsRef: React.MutableRefObject<RobotState[]>
+  botsRef: React.MutableRefObject<RobotState[]>,
+  arenaWidth: number,
+  arenaHeight: number
 ) => {
   useEffect(() => {
     // Only sync if we are NOT running or paused.
@@ -74,7 +76,7 @@ export const useRosterSync = (
             });
           } else {
             // New Bot: Random Position (Safe Check)
-            const { x, y } = getSafeSpawnPoint(nextBots);
+            const { x, y } = getSafeSpawnPoint(nextBots, arenaWidth, arenaHeight);
             const newBot = VM.createRobot(config.id, config.color, config.code, x, y);
             newBot.registers.set('TIME', 0);
             nextBots.push(newBot);
@@ -85,5 +87,5 @@ export const useRosterSync = (
        return nextBots;
     });
 
-  }, [roster, status, setBots, botsRef]);
+  }, [roster, status, setBots, botsRef, arenaWidth, arenaHeight]);
 };

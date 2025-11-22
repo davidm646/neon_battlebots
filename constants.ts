@@ -1,12 +1,21 @@
 
-export const ARENA_WIDTH = 800;
-export const ARENA_HEIGHT = 600;
+// Defaults (Fallback)
+export const DEFAULT_ARENA_WIDTH = 800;
+export const DEFAULT_ARENA_HEIGHT = 600;
+
+export const ARENA_PRESETS = {
+  DUEL: { name: 'DUEL (Small)', width: 800, height: 600 },
+  SKIRMISH: { name: 'SKIRMISH (Medium)', width: 1200, height: 900 },
+  BATTLEFIELD: { name: 'BATTLEFIELD (Large)', width: 1600, height: 1200 },
+  WARZONE: { name: 'WARZONE (Huge)', width: 2400, height: 1800 },
+};
+
 export const ROBOT_RADIUS = 20;
 export const PROJECTILE_SPEED = 12;
 export const PROJECTILE_RADIUS = 4;
 export const MAX_HEALTH = 100;
 export const DAMAGE_PER_SHOT = 10;
-export const SCAN_RANGE = 1200; // Increased to ensure corner-to-corner coverage
+export const SCAN_RANGE = 2000; // Increased for larger maps
 
 // Weapon System
 export const WEAPON_PROJECTILE = 1;
@@ -143,6 +152,8 @@ LOOP:
   TURN head
   
   ; Wall Check
+  ; Note: If you change arena size, these coords
+  ; might need updating!
   CMP x 50
   JLT BOUNCE
   CMP x 750

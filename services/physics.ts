@@ -3,7 +3,7 @@ import { RobotState, Projectile, Explosion, LaserBeam, Missile } from '../types'
 import { VM } from './vm';
 import { audio } from './audio';
 import { 
-  ARENA_WIDTH, ARENA_HEIGHT, ROBOT_RADIUS, PROJECTILE_SPEED, PROJECTILE_RADIUS, 
+  ROBOT_RADIUS, PROJECTILE_SPEED, PROJECTILE_RADIUS, 
   DAMAGE_PER_SHOT, HEAT_PER_SHOT, HEAT_DECAY, MAX_HEAT, TURRET_SPEED, TURN_SPEED,
   COLLISION_DAMAGE_FACTOR, WALL_DAMAGE_FACTOR, COLLISION_BOUNCE,
   COLLISION_DAMAGE_THRESHOLD, COLLISION_COOLDOWN,
@@ -17,8 +17,10 @@ export class PhysicsEngine {
     bots: RobotState[], 
     projectiles: (Projectile | Missile)[], 
     explosions: Explosion[],
-    lasers: LaserBeam[] = [],
-    cycles: number = 5
+    lasers: LaserBeam[],
+    cycles: number,
+    arenaWidth: number,
+    arenaHeight: number
   ): { bots: RobotState[], projectiles: (Projectile | Missile)[], explosions: Explosion[], lasers: LaserBeam[] } {
     
     // Clone arrays
@@ -126,7 +128,6 @@ export class PhysicsEngine {
              } 
              // WEAPON 2: Laser
              else if (activeWeapon === WEAPON_LASER) {
-                 // ... Laser logic ... (omitted for brevity in XML, kept same conceptually)
                  let closestDist = SCAN_RANGE;
                  let hitX = barrelTipX + Math.cos(turretRad) * SCAN_RANGE;
                  let hitY = barrelTipY + Math.sin(turretRad) * SCAN_RANGE;
@@ -135,11 +136,11 @@ export class PhysicsEngine {
                  const dirY = Math.sin(turretRad);
 
                  if (dirX !== 0) {
-                    let wallX = dirX > 0 ? ARENA_WIDTH : 0;
+                    let wallX = dirX > 0 ? arenaWidth : 0;
                     let dist = (wallX - barrelTipX) / dirX;
                     if (dist > 0 && dist < closestDist) {
                        let wallY = barrelTipY + dist * dirY;
-                       if (wallY >= 0 && wallY <= ARENA_HEIGHT) {
+                       if (wallY >= 0 && wallY <= arenaHeight) {
                           closestDist = dist;
                           hitX = wallX;
                           hitY = wallY;
@@ -147,11 +148,11 @@ export class PhysicsEngine {
                     }
                  }
                  if (dirY !== 0) {
-                    let wallY = dirY > 0 ? ARENA_HEIGHT : 0;
+                    let wallY = dirY > 0 ? arenaHeight : 0;
                     let dist = (wallY - barrelTipY) / dirY;
                     if (dist > 0 && dist < closestDist) {
                        let wallX = barrelTipX + dist * dirX;
-                       if (wallX >= 0 && wallX <= ARENA_WIDTH) {
+                       if (wallX >= 0 && wallX <= arenaWidth) {
                           closestDist = dist;
                           hitX = wallX;
                           hitY = wallY;
@@ -246,14 +247,15 @@ export class PhysicsEngine {
     
     audio.updateEngine(totalBotSpeed);
 
-    // 2. Collision Resolution (Omitted for brevity - identical to previous)
+    // 2. Collision Resolution
     currentBots.forEach((bot, i) => {
        if (bot.health <= 0) return;
        let hitWall = false;
+       // Wall Clamping with Dynamic Arena Size
        if (bot.x < ROBOT_RADIUS) { bot.x = ROBOT_RADIUS; hitWall = true; } 
-       else if (bot.x > ARENA_WIDTH - ROBOT_RADIUS) { bot.x = ARENA_WIDTH - ROBOT_RADIUS; hitWall = true; }
+       else if (bot.x > arenaWidth - ROBOT_RADIUS) { bot.x = arenaWidth - ROBOT_RADIUS; hitWall = true; }
        if (bot.y < ROBOT_RADIUS) { bot.y = ROBOT_RADIUS; hitWall = true; }
-       else if (bot.y > ARENA_HEIGHT - ROBOT_RADIUS) { bot.y = ARENA_HEIGHT - ROBOT_RADIUS; hitWall = true; }
+       else if (bot.y > arenaHeight - ROBOT_RADIUS) { bot.y = arenaHeight - ROBOT_RADIUS; hitWall = true; }
 
        if (hitWall && bot.speed > 0) {
          if (bot.speed > COLLISION_DAMAGE_THRESHOLD && bot.collisionCooldown === 0) {
@@ -352,7 +354,7 @@ export class PhysicsEngine {
       p.x += p.vx;
       p.y += p.vy;
 
-      if (p.x < 0 || p.x > ARENA_WIDTH || p.y < 0 || p.y > ARENA_HEIGHT) {
+      if (p.x < 0 || p.x > arenaWidth || p.y < 0 || p.y > arenaHeight) {
         p.active = false;
       }
 
@@ -365,15 +367,14 @@ export class PhysicsEngine {
         if (dist < ROBOT_RADIUS + PROJECTILE_RADIUS + (isMissile ? 5 : 0)) {
           p.active = false;
           bot.health -= p.damage;
-          audio.playHit(); // Using explosion-like hit sound
+          audio.playHit();
           
           if (isMissile) {
-             // Bigger explosion for missile
              currentExplosions.push({
                 id: Math.random().toString(),
                 x: p.x, y: p.y, radius: 15, maxRadius: 40, life: 1, color: '#f43f5e'
              });
-             audio.playExplosion(); // Full explosion sound for missile impact
+             audio.playExplosion();
           } else {
              currentExplosions.push({
                 id: Math.random().toString(),
