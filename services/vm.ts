@@ -1,10 +1,11 @@
 
 import { RobotState, OpCode, Instruction } from '../types';
 import { ARENA_WIDTH, ARENA_HEIGHT } from '../constants';
+import { Compiler } from './compiler';
 
 export class VM {
   static createRobot(id: string, color: string, code: string, x: number, y: number): RobotState {
-    const { program, labels } = (window as any).Compiler.parse(code); // Quick access
+    const { program, labels } = Compiler.parse(code);
     
     const regs = new Map<string, number>();
     
