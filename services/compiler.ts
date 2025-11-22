@@ -1,3 +1,4 @@
+
 import { Instruction, OpCode } from '../types';
 
 export class Compiler {
@@ -75,7 +76,10 @@ export class Compiler {
           }
           if (opRaw === 'FIRE') {
              // FIRE 1 -> SET SHOOT 1
-             program.push({ op: OpCode.SET, args: ['SHOOT', '1'], originalLine: lineNum });
+             // FIRE 2 -> SET SHOOT 2
+             // Default to 1 if no arg provided
+             const fireMode = args[0] || '1';
+             program.push({ op: OpCode.SET, args: ['SHOOT', fireMode], originalLine: lineNum });
              continue;
           }
           break;

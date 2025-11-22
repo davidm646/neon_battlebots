@@ -1,18 +1,19 @@
 
 import React, { useEffect, useRef } from 'react';
-import { RobotState, Projectile, Explosion, GameConfig, GameStatus } from '../types';
+import { RobotState, Projectile, Explosion, GameConfig, GameStatus, LaserBeam } from '../types';
 import { ARENA_WIDTH, ARENA_HEIGHT, ROBOT_RADIUS, SCAN_RANGE } from '../constants';
 
 interface ArenaProps {
   bots: RobotState[];
   projectiles: Projectile[];
   explosions: Explosion[];
+  lasers?: LaserBeam[];
   config: GameConfig;
   status: GameStatus;
   onBotClick?: (botId: string) => void;
 }
 
-export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, config, status, onBotClick }) => {
+export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, lasers = [], config, status, onBotClick }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Handle Click for Selection
@@ -84,6 +85,42 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, con
           ctx.restore();
         });
       }
+
+      // Draw Lasers (Before bots so they appear under them if starting from center, but physics starts at gun tip)
+      lasers.forEach(l => {
+        let startX = l.x1;
+        let startY = l.y1;
+        
+        // If the laser belongs to a bot, attach the start point to the bot's current turret position
+        if (l.ownerId) {
+          const owner = bots.find(b => b.id === l.ownerId);
+          // Ensure bot is alive and valid before moving the laser origin
+          if (owner && owner.health > 0) {
+             const turretRad = (owner.turretAngle * Math.PI) / 180;
+             startX = owner.x + Math.cos(turretRad) * 25;
+             startY = owner.y + Math.sin(turretRad) * 25;
+          }
+        }
+
+        ctx.save();
+        ctx.globalAlpha = l.life; // Fade out
+        ctx.strokeStyle = l.color;
+        
+        // Inner Beam
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(l.x2, l.y2);
+        ctx.stroke();
+        
+        // Glow
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = l.color;
+        ctx.lineWidth = 4;
+        ctx.stroke();
+        
+        ctx.restore();
+      });
 
       // Draw Bots
       bots.forEach(bot => {
@@ -233,7 +270,7 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, con
     };
 
     requestAnimationFrame(draw);
-  }, [bots, projectiles, explosions, config, status]);
+  }, [bots, projectiles, explosions, lasers, config, status]);
 
   return (
     <canvas 

@@ -1,9 +1,10 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Arena } from './components/Arena';
 import { CodeEditor } from './components/CodeEditor';
 import { ControlPanel } from './components/ControlPanel';
 import { DebuggerPanel } from './components/DebuggerPanel';
-import { GameStatus, RobotState, Projectile, Explosion, BotConfig } from './types';
+import { GameStatus, RobotState, Projectile, Explosion, BotConfig, LaserBeam } from './types';
 import { ARENA_WIDTH, ARENA_HEIGHT, DEFAULT_BOT_SCRIPT, TARGET_BOT_SCRIPT, BOT_PALETTE } from './constants';
 import { VM } from './services/vm';
 import { PhysicsEngine } from './services/physics';
@@ -22,11 +23,13 @@ export default function App() {
   const [bots, setBots] = useState<RobotState[]>([]);
   const [projectiles, setProjectiles] = useState<Projectile[]>([]);
   const [explosions, setExplosions] = useState<Explosion[]>([]);
+  const [lasers, setLasers] = useState<LaserBeam[]>([]);
 
   // Refs for Loop Speed
   const botsRef = useRef<RobotState[]>([]);
   const projectilesRef = useRef<Projectile[]>([]);
   const explosionsRef = useRef<Explosion[]>([]);
+  const lasersRef = useRef<LaserBeam[]>([]);
   const requestRef = useRef<number>(0);
 
   // --- Hooks ---
@@ -90,9 +93,11 @@ export default function App() {
     setBots(startBots);
     setProjectiles([]);
     setExplosions([]);
+    setLasers([]);
     botsRef.current = startBots;
     projectilesRef.current = [];
     explosionsRef.current = [];
+    lasersRef.current = [];
   }, [roster]);
 
 
@@ -103,16 +108,19 @@ export default function App() {
       botsRef.current,
       projectilesRef.current,
       explosionsRef.current,
+      lasersRef.current,
       cycles
     );
 
     botsRef.current = nextState.bots;
     projectilesRef.current = nextState.projectiles;
     explosionsRef.current = nextState.explosions;
+    lasersRef.current = nextState.lasers;
 
     setBots(nextState.bots);
     setProjectiles(nextState.projectiles);
     setExplosions(nextState.explosions);
+    setLasers(nextState.lasers);
   }, []);
 
   // --- Game Loop ---
@@ -277,6 +285,7 @@ export default function App() {
               bots={bots} 
               projectiles={projectiles} 
               explosions={explosions} 
+              lasers={lasers}
               config={{width: ARENA_WIDTH, height: ARENA_HEIGHT, fps: 60}} 
               status={status}
               onBotClick={setSelectedBotId}

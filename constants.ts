@@ -6,7 +6,7 @@ export const PROJECTILE_SPEED = 12;
 export const PROJECTILE_RADIUS = 4;
 export const MAX_HEALTH = 100;
 export const DAMAGE_PER_SHOT = 10;
-export const SCAN_RANGE = 900; // Infinite basically
+export const SCAN_RANGE = 1200; // Increased to ensure corner-to-corner coverage
 
 // Collision Physics
 export const COLLISION_DAMAGE_FACTOR = 0.5; // Reduced factor
@@ -19,6 +19,12 @@ export const COLLISION_COOLDOWN = 30;       // Frames of invulnerability after a
 export const MAX_HEAT = 100;
 export const HEAT_PER_SHOT = 20;
 export const HEAT_DECAY = 1.0; // Per Frame
+
+// Laser Weapon Balance
+export const LASER_DAMAGE = 8;       // Slightly less than projectile (10)
+export const LASER_HEAT = 40;        // High heat cost
+export const LASER_FADE_FRAMES = 10; // Visual duration
+export const LASER_COLOR = '#22d3ee'; // Cyan
 
 // Physics Balance
 export const TURRET_SPEED = 10; // Degrees per frame
@@ -55,7 +61,7 @@ JEQ label     : Jump if a == b
 SCAN angle    : Puts distance in RADAR (0 if none)
 
 System Registers (Controls):
-SPEED (0-10), ANGLE (0-360), TURRET (0-360), SHOOT (0/1)
+SPEED (0-10), ANGLE (0-360), TURRET (0-360), SHOOT (0/1/2)
 
 System Registers (Sensors):
 RADAR, HEAT, X, Y, HEALTH, TIME
@@ -64,7 +70,8 @@ Aliases:
 AIM x  -> SET TURRET x
 MOVE x -> SET SPEED x
 TURN x -> SET ANGLE x
-FIRE 1 -> SET SHOOT 1
+FIRE 1 -> Standard Projectile (20 Heat, 10 Dmg)
+FIRE 2 -> High Power Laser (40 Heat, 8 Dmg, Instant)
 `;
 
 export const DEFAULT_BOT_SCRIPT = `
@@ -87,8 +94,16 @@ LOOP:
   JMP LOOP
 
 ATTACK:
+  ; Use Laser if close, else projectile
+  CMP radar 200
+  JLT LASER_SHOT
+  
   FIRE 1
   ADD aim 5
+  JMP LOOP
+
+LASER_SHOT:
+  FIRE 2
   JMP LOOP
 
 COOL_DOWN:

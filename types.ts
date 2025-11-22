@@ -74,6 +74,17 @@ export interface Projectile {
   active: boolean;
 }
 
+export interface LaserBeam {
+  id: string;
+  ownerId?: string; // The bot that fired this beam
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  color: string;
+  life: number; // 0 to 1 (opacity)
+}
+
 export interface Explosion {
   id: string;
   x: number;

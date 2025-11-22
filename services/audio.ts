@@ -102,6 +102,28 @@ export class SoundManager {
     osc.stop(t + 0.15);
   }
 
+  // Laser Zap - Sharper, cleaner, instant feel
+  playLaser() {
+    if (!this.ctx || !this.masterGain) return;
+    const t = this.ctx.currentTime;
+    
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine'; // Pure tone
+    osc.frequency.setValueAtTime(2000, t);
+    osc.frequency.exponentialRampToValueAtTime(500, t + 0.1);
+
+    gain.gain.setValueAtTime(0.3, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start();
+    osc.stop(t + 0.1);
+  }
+
   // Crunchy Noise with Low Pass Filter
   playExplosion() {
     if (!this.ctx || !this.masterGain || !this.noiseBuffer) return;
