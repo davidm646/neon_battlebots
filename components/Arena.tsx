@@ -72,15 +72,7 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, con
           ctx.translate(bot.x, bot.y);
           ctx.rotate((bot.turretAngle * Math.PI) / 180);
 
-          // Vision Cone (5 degrees total, +/- 2.5)
-          ctx.beginPath();
-          ctx.moveTo(0, 0);
-          ctx.arc(0, 0, SCAN_RANGE, -2.5 * Math.PI / 180, 2.5 * Math.PI / 180);
-          ctx.lineTo(0, 0);
-          ctx.fillStyle = bot.id === 'player' ? 'rgba(6, 182, 212, 0.1)' : 'rgba(239, 68, 68, 0.1)';
-          ctx.fill();
-
-          // Laser Sight (Center line)
+          // Laser Sight (Center line) only - Cone removed as requested
           ctx.beginPath();
           ctx.moveTo(0, 0);
           ctx.lineTo(SCAN_RANGE, 0);
@@ -97,6 +89,43 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, con
       bots.forEach(bot => {
         if (bot.health <= 0) return; // Dead bots don't render or render as wreckage
 
+        // --- SCANNER PULSE EFFECT ---
+        const currentTime = bot.registers.get('TIME') || 0;
+        const timeSinceScan = currentTime - bot.lastScanTime;
+        const FADE_FRAMES = 15; // Duration of scan pulse
+        
+        if (timeSinceScan >= 0 && timeSinceScan < FADE_FRAMES) {
+           const opacity = 1 - (timeSinceScan / FADE_FRAMES);
+           ctx.save();
+           ctx.translate(bot.x, bot.y);
+           ctx.rotate((bot.lastScanAngle * Math.PI) / 180);
+           
+           ctx.fillStyle = bot.color; // Use bot color for scan
+           ctx.globalAlpha = opacity * 0.2; // Fainter opacity
+           
+           // Draw a wide wedge/sector for the "Ping" effect
+           // Barely protruding from the bot
+           const PULSE_RADIUS = ROBOT_RADIUS * 2; 
+           const PULSE_WIDTH = 10; // Degrees +/- (20 degrees total)
+
+           ctx.beginPath();
+           ctx.moveTo(0, 0);
+           ctx.arc(0, 0, PULSE_RADIUS, -PULSE_WIDTH * Math.PI / 180, PULSE_WIDTH * Math.PI / 180);
+           ctx.lineTo(0, 0);
+           ctx.fill();
+           
+           // Draw an edge line
+           ctx.globalAlpha = opacity * 0.4; // Fainter edge
+           ctx.strokeStyle = bot.color;
+           ctx.lineWidth = 1;
+           ctx.beginPath();
+           ctx.arc(0, 0, PULSE_RADIUS, -PULSE_WIDTH * Math.PI / 180, PULSE_WIDTH * Math.PI / 180);
+           ctx.stroke();
+
+           ctx.restore();
+        }
+
+        // --- RENDER BOT ---
         ctx.save();
         ctx.translate(bot.x, bot.y);
         

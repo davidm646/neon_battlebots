@@ -1,3 +1,4 @@
+
 import { RobotState, OpCode, Instruction } from '../types';
 import { ARENA_WIDTH, ARENA_HEIGHT } from '../constants';
 
@@ -33,7 +34,7 @@ export class VM {
     });
 
     return {
-      id, color, x, y, angle: 0, speed: 0, turretAngle: 0,
+      id, color, x, y, angle: 0, speed: 0, turretAngle: 0, desiredTurretAngle: 0,
       health: 100, energy: 100, radius: 20,
       heat: 0,
       overheated: false,
@@ -44,7 +45,9 @@ export class VM {
       cmpFlag: 0,
       scanCooldown: 0,
       shootCooldown: 0,
-      lastScanResult: 0 // Default to 0 (nothing found) instead of -1
+      lastScanResult: 0, // Default to 0 (nothing found) instead of -1
+      lastScanAngle: 0,
+      lastScanTime: -999 // Never scanned
     };
   }
 
@@ -81,8 +84,9 @@ export class VM {
     let angle = bot.registers.get('ANGLE') || 0;
     bot.angle = (angle % 360 + 360) % 360;
     
+    // Set Desired Turret Angle from Register (Physics loop handles smoothness)
     let turret = bot.registers.get('TURRET') || 0;
-    bot.turretAngle = (turret % 360 + 360) % 360;
+    bot.desiredTurretAngle = (turret % 360 + 360) % 360;
   }
 
   private static getVal(bot: RobotState, arg: string): number {
@@ -137,6 +141,10 @@ export class VM {
         const scanAngle = VM.getVal(bot, args[0]);
         bot.lastScanResult = VM.performScan(bot, scanAngle, allBots);
         bot.registers.set('RADAR', bot.lastScanResult);
+        
+        // Visual Event Tracking
+        bot.lastScanAngle = (scanAngle % 360 + 360) % 360;
+        bot.lastScanTime = bot.registers.get('TIME') || 0;
         break;
     }
   }

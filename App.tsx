@@ -5,7 +5,7 @@ import { CodeEditor } from './components/CodeEditor';
 import { ControlPanel } from './components/ControlPanel';
 import { DebuggerPanel } from './components/DebuggerPanel';
 import { GameStatus, RobotState, Projectile, Explosion, BotConfig } from './types';
-import { ARENA_WIDTH, ARENA_HEIGHT, DEFAULT_BOT_SCRIPT, TARGET_BOT_SCRIPT, ROBOT_RADIUS, PROJECTILE_SPEED, PROJECTILE_RADIUS, DAMAGE_PER_SHOT, HEAT_PER_SHOT, HEAT_DECAY, MAX_HEAT, BOT_PALETTE } from './constants';
+import { ARENA_WIDTH, ARENA_HEIGHT, DEFAULT_BOT_SCRIPT, TARGET_BOT_SCRIPT, ROBOT_RADIUS, PROJECTILE_SPEED, PROJECTILE_RADIUS, DAMAGE_PER_SHOT, HEAT_PER_SHOT, HEAT_DECAY, MAX_HEAT, BOT_PALETTE, TURRET_SPEED, COLLISION_DAMAGE_FACTOR, WALL_DAMAGE_FACTOR, COLLISION_BOUNCE } from './constants';
 import { VM } from './services/vm';
 import { Compiler } from './services/compiler';
 
@@ -65,73 +65,97 @@ export default function App() {
     }
   };
 
-  // --- Game Initialization ---
+  // --- Game State Management ---
 
-  const initGame = useCallback(() => {
+  // Full Reset: Randomizes positions (Used for Reset Button)
+  const scrambleAndReset = useCallback(() => {
     const startBots: RobotState[] = [];
     
-    // Spawn bots from Roster
-    roster.forEach((config, index) => {
-      // Simple random spawn logic with margin
+    roster.forEach((config) => {
       const margin = 100;
       let x = margin + Math.random() * (ARENA_WIDTH - margin * 2);
       let y = margin + Math.random() * (ARENA_HEIGHT - margin * 2);
       
-      // Create VM Instance
       startBots.push(VM.createRobot(config.id, config.color, config.code, x, y));
     });
 
     setBots(startBots);
     setProjectiles([]);
     setExplosions([]);
-    
     botsRef.current = startBots;
     projectilesRef.current = [];
     explosionsRef.current = [];
   }, [roster]);
 
+  // Restart Match: Keeps positions, resets Health/VM (Used for Play Button)
+  const restartMatch = useCallback(() => {
+    // Re-create bot state (health 100, fresh VM) but PRESERVE position/angle
+    const freshBots = botsRef.current.map(bot => {
+      const config = roster.find(r => r.id === bot.id);
+      if (!config) return bot; // Should not happen if synced
+
+      const newState = VM.createRobot(config.id, config.color, config.code, bot.x, bot.y);
+      // Keep their current angle so they don't snap to 0
+      newState.angle = bot.angle;
+      newState.turretAngle = bot.turretAngle;
+      newState.desiredTurretAngle = bot.turretAngle;
+      return newState;
+    });
+
+    // If roster has bots that aren't in botsRef (e.g. cleared array), spawn them
+    if (freshBots.length < roster.length) {
+       const existingIds = new Set(freshBots.map(b => b.id));
+       roster.forEach(config => {
+         if (!existingIds.has(config.id)) {
+            const margin = 100;
+            const x = margin + Math.random() * (ARENA_WIDTH - margin * 2);
+            const y = margin + Math.random() * (ARENA_HEIGHT - margin * 2);
+            freshBots.push(VM.createRobot(config.id, config.color, config.code, x, y));
+         }
+       });
+    }
+
+    setBots(freshBots);
+    setProjectiles([]);
+    setExplosions([]);
+    botsRef.current = freshBots;
+    projectilesRef.current = [];
+    explosionsRef.current = [];
+  }, [roster]);
+
   // --- Roster Sync Effect ---
-  // Keeps the visual battlefield in sync with the roster when editing/adding/removing
-  // while the simulation is STOPPED.
   useEffect(() => {
     if (status !== GameStatus.STOPPED) return;
 
-    // Identify changes
-    const rosterIds = new Set(roster.map(b => b.id));
-    const currentBotIds = new Set(bots.map(b => b.id));
+    setBots(currentBots => {
+       const nextBots = roster.map(config => {
+          const existing = currentBots.find(b => b.id === config.id);
+          
+          if (existing) {
+            // Update VM (in case code changed) but Keep Position
+            const vmBot = VM.createRobot(config.id, config.color, config.code, existing.x, existing.y);
+            return {
+              ...vmBot,
+              x: existing.x,
+              y: existing.y,
+              angle: existing.angle,
+              turretAngle: existing.turretAngle,
+              desiredTurretAngle: existing.turretAngle
+            };
+          } else {
+            // New Bot: Random Position
+            const margin = 100;
+            const x = margin + Math.random() * (ARENA_WIDTH - margin * 2);
+            const y = margin + Math.random() * (ARENA_HEIGHT - margin * 2);
+            return VM.createRobot(config.id, config.color, config.code, x, y);
+          }
+       });
+       
+       botsRef.current = nextBots;
+       return nextBots;
+    });
 
-    // Check if structure changed (add/remove) or if we just need to update code
-    const structureChanged = roster.length !== bots.length || !roster.every(r => currentBotIds.has(r.id));
-
-    if (structureChanged) {
-      // If bots were added or removed, we have to re-init to spawn them correctly
-      // (or delete them). Re-init is safest to ensure valid placement for new bots.
-      initGame();
-    } else {
-      // "Soft Update": Only code or name changed.
-      // Update the VM state in place without resetting position/health.
-      const updatedBots = bots.map(bot => {
-         const config = roster.find(r => r.id === bot.id);
-         if (!config) return bot;
-
-         // Re-create VM state to parse new code, but preserve physics state
-         const newVmState = VM.createRobot(config.id, config.color, config.code, bot.x, bot.y);
-         
-         return {
-           ...newVmState,
-           x: bot.x,
-           y: bot.y,
-           angle: bot.angle,
-           turretAngle: bot.turretAngle,
-           // In STOPPED state, we generally want to reset variables/registers when code changes,
-           // so using newVmState's memory is correct.
-         };
-      });
-
-      setBots(updatedBots);
-      botsRef.current = updatedBots;
-    }
-  }, [roster, status, initGame, bots]);
+  }, [roster, status]);
 
 
   // --- Physics Loop ---
@@ -141,7 +165,7 @@ export default function App() {
     let currentProjs = [...projectilesRef.current];
     let currentExplosions = [...explosionsRef.current];
 
-    // 1. Run VM and Physics for Bots
+    // 1. Run VM and Logic
     currentBots.forEach(bot => {
       if (bot.health <= 0) return;
 
@@ -149,8 +173,6 @@ export default function App() {
       if (bot.heat > 0) {
         bot.heat = Math.max(0, bot.heat - HEAT_DECAY);
       }
-      
-      // Recover from Overheat
       if (bot.overheated && bot.heat <= 0) {
         bot.overheated = false;
       }
@@ -158,14 +180,22 @@ export default function App() {
       // Execute VM
       VM.step(bot, currentBots, cycles);
 
-      // Physics Movement
+      // Move Bot based on registers
       const rad = (bot.angle * Math.PI) / 180;
-      bot.x += Math.cos(rad) * (bot.speed / 2); // Scale speed down slightly
+      bot.x += Math.cos(rad) * (bot.speed / 2); 
       bot.y += Math.sin(rad) * (bot.speed / 2);
 
-      // Wall Collisions
-      bot.x = Math.max(ROBOT_RADIUS, Math.min(ARENA_WIDTH - ROBOT_RADIUS, bot.x));
-      bot.y = Math.max(ROBOT_RADIUS, Math.min(ARENA_HEIGHT - ROBOT_RADIUS, bot.y));
+      // Turret Rotation Smoothing
+      let diff = bot.desiredTurretAngle - bot.turretAngle;
+      while (diff <= -180) diff += 360;
+      while (diff > 180) diff -= 360;
+
+      if (Math.abs(diff) < TURRET_SPEED) {
+        bot.turretAngle = bot.desiredTurretAngle;
+      } else {
+        bot.turretAngle += Math.sign(diff) * TURRET_SPEED;
+      }
+      bot.turretAngle = (bot.turretAngle + 360) % 360;
 
       // Firing Logic
       if (bot.registers.get('SHOOT') === 1) {
@@ -192,7 +222,96 @@ export default function App() {
       bot.registers.set('SHOOT', 0);
     });
 
-    // 2. Physics for Projectiles
+    // 2. Collision Resolution (Walls & Bots)
+    currentBots.forEach((bot, i) => {
+       if (bot.health <= 0) return;
+       
+       // --- WALL COLLISIONS ---
+       let hitWall = false;
+       
+       // Left Wall
+       if (bot.x < ROBOT_RADIUS) {
+         bot.x = ROBOT_RADIUS;
+         hitWall = true;
+       } 
+       // Right Wall
+       else if (bot.x > ARENA_WIDTH - ROBOT_RADIUS) {
+         bot.x = ARENA_WIDTH - ROBOT_RADIUS;
+         hitWall = true;
+       }
+
+       // Top Wall
+       if (bot.y < ROBOT_RADIUS) {
+         bot.y = ROBOT_RADIUS;
+         hitWall = true;
+       }
+       // Bottom Wall
+       else if (bot.y > ARENA_HEIGHT - ROBOT_RADIUS) {
+         bot.y = ARENA_HEIGHT - ROBOT_RADIUS;
+         hitWall = true;
+       }
+
+       if (hitWall && bot.speed > 0) {
+         // Damage based on speed
+         bot.health -= bot.speed * WALL_DAMAGE_FACTOR;
+         // Crash stop/bounce
+         bot.speed = Math.floor(bot.speed * COLLISION_BOUNCE);
+         bot.registers.set('SPEED', bot.speed); // Update register to reflect physics change
+       }
+
+
+       // --- BOT VS BOT COLLISIONS ---
+       for (let j = i + 1; j < currentBots.length; j++) {
+         const other = currentBots[j];
+         if (other.health <= 0) continue;
+
+         const dx = other.x - bot.x;
+         const dy = other.y - bot.y;
+         const dist = Math.sqrt(dx*dx + dy*dy);
+         const minDist = ROBOT_RADIUS * 2;
+
+         if (dist < minDist) {
+           // Overlap detected!
+           const angle = Math.atan2(dy, dx);
+           const overlap = minDist - dist;
+           
+           // 1. Separate them (push apart equally)
+           const moveX = (Math.cos(angle) * overlap) / 2;
+           const moveY = (Math.sin(angle) * overlap) / 2;
+           
+           bot.x -= moveX;
+           bot.y -= moveY;
+           other.x += moveX;
+           other.y += moveY;
+
+           // 2. Apply Damage based on combined speed (Impact)
+           const impact = (bot.speed + other.speed) * COLLISION_DAMAGE_FACTOR;
+           // Minimum impact damage of 2 just for touching
+           const damage = Math.max(2, impact); 
+           
+           bot.health -= damage;
+           other.health -= damage;
+
+           // 3. Visuals (Explosion at midpoint)
+           const midX = bot.x + (dx / 2);
+           const midY = bot.y + (dy / 2);
+           currentExplosions.push({
+              id: Math.random().toString(),
+              x: midX, y: midY, radius: 10, maxRadius: 25, life: 1, color: '#cbd5e1' // White/Smoke sparks
+           });
+
+           // 4. Slow down both bots (Crash physics)
+           bot.speed = Math.floor(bot.speed * COLLISION_BOUNCE);
+           other.speed = Math.floor(other.speed * COLLISION_BOUNCE);
+           
+           bot.registers.set('SPEED', bot.speed);
+           other.registers.set('SPEED', other.speed);
+         }
+       }
+    });
+
+
+    // 3. Physics for Projectiles
     currentProjs.forEach(p => {
       p.x += p.vx;
       p.y += p.vy;
@@ -222,7 +341,7 @@ export default function App() {
 
     currentProjs = currentProjs.filter(p => p.active);
 
-    // 3. Update Explosions
+    // 4. Update Explosions
     currentExplosions.forEach(e => {
       e.life -= 0.05;
       e.radius += 2;
@@ -244,9 +363,7 @@ export default function App() {
     if (status !== GameStatus.RUNNING) return;
     updatePhysicsAndLogic(5);
     
-    // Victory Condition: 0 or 1 bot remaining
     const aliveCount = botsRef.current.filter(b => b.health > 0).length;
-    // Only trigger game over if we started with more than 1 bot
     if (roster.length > 1 && aliveCount <= 1) { 
         setStatus(GameStatus.GAME_OVER);
         return; 
@@ -298,19 +415,19 @@ export default function App() {
 
   const handlePlay = () => {
     if (status === GameStatus.GAME_OVER || status === GameStatus.STOPPED) {
-        initGame();
+        restartMatch();
     }
     setStatus(GameStatus.RUNNING);
   };
 
   const handleReset = () => {
     setStatus(GameStatus.STOPPED);
-    initGame();
+    scrambleAndReset();
   };
 
   // --- Derived State ---
   const selectedBotConfig = roster.find(b => b.id === selectedBotId);
-  const selectedBotRuntime = bots.find(b => b.id === selectedBotId); // For debugger
+  const selectedBotRuntime = bots.find(b => b.id === selectedBotId);
 
   return (
     <div className="h-screen bg-slate-950 text-slate-200 flex flex-col p-4 gap-4 overflow-hidden">

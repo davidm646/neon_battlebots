@@ -34,7 +34,8 @@ export interface RobotState {
   y: number;
   angle: number;       // Degrees 0-360
   speed: number;       // 0-100
-  turretAngle: number; // Relative to bot or absolute? Absolute for simplicity.
+  turretAngle: number; // Current physical angle
+  desiredTurretAngle: number; // Target angle set by code
   health: number;
   energy: number;
   radius: number;
@@ -50,10 +51,12 @@ export interface RobotState {
   labels: Map<string, number>;
   cmpFlag: number; // -1 less, 0 equal, 1 greater
   
-  // Cooldowns
+  // Cooldowns & Events
   scanCooldown: number;
   shootCooldown: number;
   lastScanResult: number; // Distance to nearest object
+  lastScanAngle: number;  // The angle of the most recent scan
+  lastScanTime: number;   // The frame number when the last scan occurred
 }
 
 export interface Projectile {

@@ -8,10 +8,18 @@ export const MAX_HEALTH = 100;
 export const DAMAGE_PER_SHOT = 10;
 export const SCAN_RANGE = 900; // Infinite basically
 
+// Collision Physics
+export const COLLISION_DAMAGE_FACTOR = 2.0; // Damage = Speed * Factor
+export const WALL_DAMAGE_FACTOR = 1.5;      // Damage = Speed * Factor
+export const COLLISION_BOUNCE = 0.5;        // Speed retained after collision (0.5 = 50% speed loss)
+
 // Heat System Balance
 export const MAX_HEAT = 100;
 export const HEAT_PER_SHOT = 20;
 export const HEAT_DECAY = 1.0; // Per Frame
+
+// Physics Balance
+export const TURRET_SPEED = 10; // Degrees per frame
 
 export const BOT_PALETTE = [
   '#ef4444', // Red
