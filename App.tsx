@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Arena } from './components/Arena';
 import { CodeEditor } from './components/CodeEditor';
@@ -12,6 +11,7 @@ import { audio } from './services/audio';
 import { getSafeSpawnPoint } from './services/spawner';
 import { useResizable } from './hooks/useResizable';
 import { useRosterSync } from './hooks/useRosterSync';
+import { modifyBotScript } from './services/geminiService';
 
 export default function App() {
   // --- Roster State (The Source of Truth for Bots) ---
@@ -129,6 +129,20 @@ export default function App() {
        code: originalBot.code,
        color: getUniqueColor()
     });
+  };
+
+  const handleAiAssist = async (instruction: string) => {
+    if (!selectedBotId || !selectedBotConfig) return;
+    try {
+      const newCode = await modifyBotScript(selectedBotConfig.code, instruction);
+      // Only update if we got code back (simple validation)
+      if (newCode && newCode.length > 0) {
+        updateBotCode(selectedBotId, newCode);
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to modify code. Please check API key or try again.");
+    }
   };
 
   // --- Game State Management ---
@@ -325,6 +339,7 @@ export default function App() {
                 botName={selectedBotConfig ? selectedBotConfig.name : 'NO BOT SELECTED'}
                 readOnly={!selectedBotId}
                 error={selectedBotRuntime?.compileError}
+                onAiAssist={handleAiAssist}
               />
            </div>
            

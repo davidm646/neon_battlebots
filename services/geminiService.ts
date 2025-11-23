@@ -42,3 +42,55 @@ export const generateBotScript = async (prompt: string): Promise<string> => {
     return "; Error generating script. Please try again.\n; Check console for details.";
   }
 };
+
+export const modifyBotScript = async (currentCode: string, instruction: string): Promise<string> => {
+  if (!process.env.API_KEY) {
+    throw new Error("API Key is missing in environment variables.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  const systemPrompt = `
+    You are an expert programmer for the game "Neon BattleBots".
+    The language mimics assembly.
+    
+    ${DEFAULT_OPCODE_HELP}
+    
+    TASK:
+    Modify the provided assembly code based on the user's instruction.
+    
+    RULES:
+    1. Output ONLY the complete, valid code. No markdown, no conversation.
+    2. Preserve the existing structure (START/LOOP labels) unless requested otherwise.
+    3. Keep existing variables and logic if they are not related to the change.
+    4. Add comments explaining the changes.
+  `;
+
+  const prompt = `
+    CURRENT CODE:
+    ${currentCode}
+
+    INSTRUCTION:
+    ${instruction}
+    
+    OUTPUT:
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        systemInstruction: systemPrompt,
+        thinkingConfig: { thinkingBudget: 0 }
+      }
+    });
+
+    let code = response.text || "";
+    code = code.replace(/```assembly/g, '').replace(/```/g, '').trim();
+    return code;
+  } catch (error) {
+    console.error("Gemini modification failed", error);
+    return currentCode; // Fail safe return original
+  }
+};
