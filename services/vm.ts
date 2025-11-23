@@ -1,6 +1,6 @@
 
 import { RobotState, OpCode, Instruction } from '../types';
-import { AMMO_PROJECTILE, AMMO_LASER, AMMO_MISSILE, WEAPON_PROJECTILE, WEAPON_LASER, WEAPON_MISSILE, MISSILE_LOCK_DURATION } from '../constants';
+import { AMMO_PROJECTILE, AMMO_LASER, AMMO_MISSILE, WEAPON_PROJECTILE, WEAPON_LASER, WEAPON_MISSILE, MISSILE_LOCK_DURATION, SCAN_CONE_WIDTH } from '../constants';
 import { Compiler } from './compiler';
 import { audio } from './audio';
 
@@ -201,7 +201,7 @@ export class VM {
   private static performScan(bot: RobotState, angle: number, allBots: RobotState[]): number {
     let minDist = 9999;
     let foundBotId: string | null = null;
-    const SCAN_CONE_HALF_WIDTH = 2.0; 
+    const SCAN_CONE_HALF_WIDTH = SCAN_CONE_WIDTH / 2; 
 
     for (const other of allBots) {
       // Do not detect self or dead bots

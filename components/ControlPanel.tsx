@@ -102,8 +102,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   return (
     <div className="h-full flex flex-col gap-4 overflow-hidden pb-1">
       
-      {/* Scrollable Upper Section */}
-      <div className="shrink-0 flex flex-col gap-4 overflow-y-auto custom-scrollbar pr-1">
+      {/* Upper Section: Flexes to fill space above DocsCard */}
+      <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden pr-1">
         
         {/* 1. Game Controls */}
         <div className="grid grid-cols-2 gap-2 shrink-0">
@@ -133,16 +133,50 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           )}
         </div>
 
-        {/* 2. Battle Roster */}
-        <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 shadow-lg shrink-0 flex flex-col gap-3">
-           <div className="flex items-center justify-between text-slate-300">
+        {/* 2. Battle Roster - Now Flexes to fill available height */}
+        <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 shadow-lg flex-1 min-h-0 flex flex-col gap-3">
+           <div className="flex items-center justify-between text-slate-300 shrink-0">
              <div className="font-display font-bold text-xs tracking-wider flex items-center gap-2">
                 <svg className="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                 BATTLE ROSTER ({roster.length})
              </div>
            </div>
 
-           <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar bg-slate-900/50 p-2 rounded">
+           <div className="grid grid-cols-2 gap-2 shrink-0">
+              <button 
+                 onClick={() => onAddBot(`Bot_${roster.length + 1}`, DEFAULT_BOT_SCRIPT)}
+                 className="bg-cyan-700 hover:bg-cyan-600 text-white text-[10px] font-bold py-2 rounded border border-cyan-800 hover:border-cyan-500 transition flex items-center justify-center gap-1"
+              >
+                 + NEW BOT
+              </button>
+              <button 
+                 onClick={handleAddTargetBot}
+                 className="bg-slate-700 hover:bg-slate-600 text-white text-[10px] font-bold py-2 rounded border border-slate-600 transition"
+              >
+                 + TARGET
+              </button>
+           </div>
+           
+           <div className="grid grid-cols-2 gap-2 shrink-0">
+               <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".nbb,.txt" />
+               <button 
+                 onClick={handleLoadClick}
+                 className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-[10px] font-bold py-2 rounded border border-slate-600 transition flex items-center justify-center gap-1"
+               >
+                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                 LOAD ROBOT
+               </button>
+               <button 
+                 onClick={handleSaveFile}
+                 disabled={!selectedBotId}
+                 className={`text-slate-200 text-[10px] font-bold py-2 rounded border transition flex items-center justify-center gap-1 ${!selectedBotId ? 'bg-slate-800 border-slate-800 text-slate-600' : 'bg-purple-700 hover:bg-purple-600 border-purple-800 hover:border-purple-500'}`}
+               >
+                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                 SAVE ROBOT
+               </button>
+           </div>
+
+           <div className="space-y-2 flex-1 overflow-y-auto custom-scrollbar bg-slate-900/50 p-2 rounded min-h-[60px]">
               {roster.length === 0 && (
                 <div className="text-[10px] text-slate-500 text-center italic py-2">No active bots</div>
               )}
@@ -174,40 +208,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                    </div>
                 </div>
               ))}
-           </div>
-
-           <div className="grid grid-cols-2 gap-2">
-              <button 
-                 onClick={() => onAddBot(`Bot_${roster.length + 1}`, DEFAULT_BOT_SCRIPT)}
-                 className="bg-cyan-700 hover:bg-cyan-600 text-white text-[10px] font-bold py-2 rounded border border-cyan-800 hover:border-cyan-500 transition flex items-center justify-center gap-1"
-              >
-                 + NEW BOT
-              </button>
-              <button 
-                 onClick={handleAddTargetBot}
-                 className="bg-slate-700 hover:bg-slate-600 text-white text-[10px] font-bold py-2 rounded border border-slate-600 transition"
-              >
-                 + TARGET
-              </button>
-           </div>
-           
-           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-700">
-               <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".nbb,.txt" />
-               <button 
-                 onClick={handleLoadClick}
-                 className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-[10px] font-bold py-2 rounded border border-slate-600 transition flex items-center justify-center gap-1"
-               >
-                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                 LOAD ROBOT
-               </button>
-               <button 
-                 onClick={handleSaveFile}
-                 disabled={!selectedBotId}
-                 className={`text-slate-200 text-[10px] font-bold py-2 rounded border transition flex items-center justify-center gap-1 ${!selectedBotId ? 'bg-slate-800 border-slate-800 text-slate-600' : 'bg-purple-700 hover:bg-purple-600 border-purple-800 hover:border-purple-500'}`}
-               >
-                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                 SAVE ROBOT
-               </button>
            </div>
         </div>
 

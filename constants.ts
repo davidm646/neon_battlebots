@@ -16,6 +16,7 @@ export const PROJECTILE_RADIUS = 4;
 export const MAX_HEALTH = 100;
 export const DAMAGE_PER_SHOT = 10;
 export const SCAN_RANGE = 5000; // Increased to cover Huge arena diagonal
+export const SCAN_CONE_WIDTH = 4; // Total width in degrees
 
 // Weapon System
 export const WEAPON_PROJECTILE = 1;

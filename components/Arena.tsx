@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { RobotState, Projectile, Explosion, GameConfig, GameStatus, LaserBeam, Missile } from '../types';
-import { ROBOT_RADIUS, SCAN_RANGE, WEAPON_MISSILE } from '../constants';
+import { ROBOT_RADIUS, SCAN_RANGE, WEAPON_MISSILE, SCAN_CONE_WIDTH } from '../constants';
 
 interface ArenaProps {
   bots: RobotState[];
@@ -10,20 +10,21 @@ interface ArenaProps {
   lasers?: LaserBeam[];
   config: GameConfig;
   status: GameStatus;
+  showDebug?: boolean;
   onBotClick?: (botId: string) => void;
 }
 
-export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, lasers = [], config, status, onBotClick }) => {
+export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, lasers = [], config, status, showDebug = false, onBotClick }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hoveredBotId, setHoveredBotId] = useState<string | null>(null);
   
   // Store latest props in a ref so the animation loop always has access to fresh data
   // without triggering a re-initialization of the loop itself.
-  const propsRef = useRef({ bots, projectiles, explosions, lasers, config, status, hoveredBotId });
+  const propsRef = useRef({ bots, projectiles, explosions, lasers, config, status, showDebug, hoveredBotId });
 
   useEffect(() => {
-    propsRef.current = { bots, projectiles, explosions, lasers, config, status, hoveredBotId };
-  }, [bots, projectiles, explosions, lasers, config, status, hoveredBotId]);
+    propsRef.current = { bots, projectiles, explosions, lasers, config, status, showDebug, hoveredBotId };
+  }, [bots, projectiles, explosions, lasers, config, status, showDebug, hoveredBotId]);
 
   // Handle Click for Selection
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -98,7 +99,7 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, las
     // Render Loop
     const draw = () => {
       // Read latest state from Ref
-      const { bots, projectiles, explosions, lasers, config, status, hoveredBotId } = propsRef.current;
+      const { bots, projectiles, explosions, lasers, config, status, showDebug, hoveredBotId } = propsRef.current;
 
       // Clear background
       ctx.fillStyle = '#0f172a'; // Slate-900
@@ -115,16 +116,38 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, las
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(config.width, y); ctx.stroke();
       }
 
-      // Draw Line of Sight (PAUSED MODE ONLY)
-      if (status === GameStatus.PAUSED || status === GameStatus.STOPPED) {
+      // Draw Debug Visuals (Aim Lines and Scan Cones)
+      const shouldShowDebug = status === GameStatus.PAUSED || status === GameStatus.STOPPED || showDebug;
+
+      if (shouldShowDebug) {
         bots.forEach(bot => {
           if (bot.health <= 0) return;
           
+          // 1. Draw Scan Cone (Last Scan Angle)
+          ctx.save();
+          ctx.translate(bot.x, bot.y);
+          ctx.rotate((bot.lastScanAngle * Math.PI) / 180);
+          
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          const halfConeRad = (SCAN_CONE_WIDTH / 2) * (Math.PI / 180);
+          // Draw arc for the cone
+          ctx.arc(0, 0, SCAN_RANGE, -halfConeRad, halfConeRad);
+          ctx.lineTo(0, 0);
+          
+          ctx.fillStyle = `rgba(255, 255, 255, 0.05)`; // Very faint fill
+          ctx.fill();
+          
+          ctx.strokeStyle = `rgba(255, 255, 255, 0.1)`; // Faint outline
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          ctx.restore();
+
+          // 2. Draw Aim Line (Turret Direction)
           ctx.save();
           ctx.translate(bot.x, bot.y);
           ctx.rotate((bot.turretAngle * Math.PI) / 180);
 
-          // Laser Sight
           ctx.beginPath();
           ctx.moveTo(0, 0);
           ctx.lineTo(SCAN_RANGE, 0);
@@ -184,7 +207,7 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, las
            }
         });
 
-        // Scan Pulse
+        // Scan Pulse (Immediate feedback on scan)
         const currentTime = bot.registers.get('TIME') || 0;
         const timeSinceScan = currentTime - bot.lastScanTime;
         const FADE_FRAMES = 15; 

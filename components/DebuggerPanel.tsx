@@ -48,6 +48,9 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
   const isPaused = gameStatus === GameStatus.PAUSED;
   const isRunning = gameStatus === GameStatus.RUNNING;
   const isStopped = gameStatus === GameStatus.STOPPED;
+  
+  // Logic to determine if the game can be started (matches ControlPanel "Battle" button)
+  const canRun = isStopped || gameStatus === GameStatus.READY || gameStatus === GameStatus.GAME_OVER;
   const isActive = isPaused || isRunning;
 
   // Refs for auto-scrolling the instruction list
@@ -80,7 +83,7 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
         </div>
 
         <div className="flex gap-2">
-           {isStopped && (
+           {canRun && (
                <button 
                 onClick={onRun}
                 className="bg-green-600 hover:bg-green-500 text-white text-[10px] font-bold px-2 py-1 rounded border-b-2 border-green-800 active:border-0 active:translate-y-px transition flex items-center gap-1"
@@ -132,7 +135,7 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
       <div className="bg-slate-900 border border-slate-700 rounded-lg flex flex-col h-full shrink-0 shadow-lg">
         {renderHeader()}
         <div className="flex-1 flex items-center justify-center text-slate-600 text-xs font-mono p-4 text-center">
-          {isStopped ? "SELECT A BOT FROM ROSTER" : "SIMULATION NOT RUNNING"}
+          {canRun ? "SELECT A BOT FROM ROSTER" : "SIMULATION NOT RUNNING"}
         </div>
       </div>
     );

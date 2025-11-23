@@ -19,7 +19,27 @@ export default function App() {
   const [selectedBotId, setSelectedBotId] = useState<string | null>(null);
 
   // --- Game Config State ---
-  const [arenaSize, setArenaSize] = useState<ArenaPreset>(ARENA_PRESETS.DUEL);
+  const [arenaSize, setArenaSize] = useState<ArenaPreset>(() => {
+    try {
+      const saved = localStorage.getItem('nbb_arena_key');
+      if (saved && saved in ARENA_PRESETS) {
+        return ARENA_PRESETS[saved as keyof typeof ARENA_PRESETS];
+      }
+    } catch (e) {}
+    return ARENA_PRESETS.DUEL;
+  });
+
+  const [showDebug, setShowDebug] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('nbb_show_debug') === 'true';
+    } catch (e) {}
+    return false;
+  });
+
+  // Persist debug toggle preference
+  useEffect(() => {
+    localStorage.setItem('nbb_show_debug', String(showDebug));
+  }, [showDebug]);
 
   // --- Game Simulation State ---
   const [status, setStatus] = useState<GameStatus>(GameStatus.STOPPED);
@@ -212,6 +232,7 @@ export default function App() {
   const handleArenaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const key = e.target.value as keyof typeof ARENA_PRESETS;
     setArenaSize(ARENA_PRESETS[key]);
+    localStorage.setItem('nbb_arena_key', key);
     setStatus(GameStatus.READY);
   };
   
@@ -271,7 +292,24 @@ export default function App() {
                ))}
              </select>
            </div>
-           <div className="text-xs font-mono text-slate-500 hidden sm:block">MULTI-BOT ARENA • GEMINI AI</div>
+
+           <div className="h-4 w-px bg-slate-700 mx-1"></div>
+
+           <label className="flex items-center gap-2 cursor-pointer select-none group">
+             <div className="relative">
+                <input 
+                  type="checkbox" 
+                  checked={showDebug} 
+                  onChange={e => setShowDebug(e.target.checked)} 
+                  className="sr-only" 
+                />
+                <div className={`w-8 h-4 rounded-full transition-colors ${showDebug ? 'bg-cyan-900' : 'bg-slate-700'}`}></div>
+                <div className={`absolute left-0.5 top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${showDebug ? 'translate-x-4 bg-cyan-400' : 'translate-x-0 bg-slate-400'}`}></div>
+             </div>
+             <span className={`text-xs font-mono uppercase transition-colors ${showDebug ? 'text-cyan-400' : 'text-slate-500 group-hover:text-slate-400'}`}>
+               Show Sights
+             </span>
+           </label>
         </div>
       </header>
 
@@ -354,6 +392,7 @@ export default function App() {
               lasers={lasers}
               config={{width: arenaSize.width, height: arenaSize.height, fps: 60}} 
               status={status}
+              showDebug={showDebug}
               onBotClick={setSelectedBotId}
             />
           </div>
