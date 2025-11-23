@@ -1,6 +1,4 @@
-
-
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { BotConfig, GameStatus, RobotState } from '../types';
 import { VM } from '../services/vm';
 import { getSafeSpawnPoint } from '../services/spawner';
