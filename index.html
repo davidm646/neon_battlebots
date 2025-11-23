@@ -4,15 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Neon BattleBots</title>
-    <script>
-      // Suppress Tailwind CDN production warning for standalone deployment
-      // Ideally, you should use a build step (Vite/Tailwind CLI) for production.
-      const originalWarn = console.warn;
-      console.warn = (...args) => {
-        if (args[0] && typeof args[0] === 'string' && args[0].includes('Tailwind CSS: This is not a production build')) return;
-        originalWarn.apply(console, args);
-      };
-    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
