@@ -1,4 +1,5 @@
 
+
 export enum OpCode {
   SET = 'SET',     // SET reg value
   ADD = 'ADD',     // ADD reg value
@@ -29,6 +30,7 @@ export interface BotConfig {
 
 export interface RobotState {
   id: string;
+  name: string; // Added name for UI display
   color: string;
   x: number;
   y: number;

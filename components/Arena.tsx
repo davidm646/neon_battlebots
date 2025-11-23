@@ -1,5 +1,5 @@
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { RobotState, Projectile, Explosion, GameConfig, GameStatus, LaserBeam, Missile } from '../types';
 import { ROBOT_RADIUS, SCAN_RANGE, WEAPON_MISSILE } from '../constants';
 
@@ -15,6 +15,15 @@ interface ArenaProps {
 
 export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, lasers = [], config, status, onBotClick }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [hoveredBotId, setHoveredBotId] = useState<string | null>(null);
+  
+  // Store latest props in a ref so the animation loop always has access to fresh data
+  // without triggering a re-initialization of the loop itself.
+  const propsRef = useRef({ bots, projectiles, explosions, lasers, config, status, hoveredBotId });
+
+  useEffect(() => {
+    propsRef.current = { bots, projectiles, explosions, lasers, config, status, hoveredBotId };
+  }, [bots, projectiles, explosions, lasers, config, status, hoveredBotId]);
 
   // Handle Click for Selection
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -27,6 +36,7 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, las
     const clickX = (e.clientX - rect.left) * scaleX;
     const clickY = (e.clientY - rect.top) * scaleY;
 
+    // Use bots from props directly (since handler is recreated on render)
     for (let i = bots.length - 1; i >= 0; i--) {
       const bot = bots[i];
       const dx = clickX - bot.x;
@@ -40,14 +50,56 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, las
     }
   };
 
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const scaleX = canvasRef.current.width / rect.width;
+    const scaleY = canvasRef.current.height / rect.height;
+    
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+
+    let foundBotId: string | null = null;
+    
+    // Iterate backwards to find the top-most bot visually
+    for (let i = bots.length - 1; i >= 0; i--) {
+      const bot = bots[i];
+      if (bot.health <= 0) continue;
+
+      const dx = x - bot.x;
+      const dy = y - bot.y;
+      // Use a slightly larger radius for easier hovering
+      if (dx * dx + dy * dy <= (ROBOT_RADIUS * 1.5) ** 2) {
+        foundBotId = bot.id;
+        break;
+      }
+    }
+
+    if (foundBotId !== hoveredBotId) {
+      setHoveredBotId(foundBotId);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (hoveredBotId) {
+      setHoveredBotId(null);
+    }
+  };
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    
+    let animationId: number;
 
     // Render Loop
     const draw = () => {
+      // Read latest state from Ref
+      const { bots, projectiles, explosions, lasers, config, status, hoveredBotId } = propsRef.current;
+
       // Clear background
       ctx.fillStyle = '#0f172a'; // Slate-900
       ctx.fillRect(0, 0, config.width, config.height);
@@ -222,10 +274,65 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, las
         ctx.beginPath(); ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI*2); ctx.fill();
         ctx.restore();
       });
+
+      // --- DRAW TOOLTIP ---
+      if (hoveredBotId) {
+        const bot = bots.find(b => b.id === hoveredBotId);
+        if (bot && bot.health > 0) {
+           const text = bot.name;
+           ctx.save();
+           ctx.font = 'bold 12px "JetBrains Mono", monospace';
+           
+           const padding = 8;
+           const textMetrics = ctx.measureText(text);
+           const boxWidth = textMetrics.width + padding * 2;
+           const boxHeight = 28;
+           const boxX = bot.x - boxWidth / 2;
+           const boxY = bot.y - ROBOT_RADIUS - boxHeight - 8;
+
+           // Clamp within canvas
+           const clampedX = Math.max(2, Math.min(config.width - boxWidth - 2, boxX));
+           const clampedY = Math.max(2, Math.min(config.height - boxHeight - 2, boxY));
+
+           // Background Box
+           ctx.shadowBlur = 0;
+           ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+           ctx.strokeStyle = bot.color;
+           ctx.lineWidth = 1;
+           ctx.beginPath();
+           ctx.roundRect(clampedX, clampedY, boxWidth, boxHeight, 4);
+           ctx.fill();
+           ctx.stroke();
+
+           // Triangle pointer (only if above bot)
+           if (clampedY < bot.y) {
+             ctx.beginPath();
+             ctx.moveTo(bot.x, clampedY + boxHeight);
+             ctx.lineTo(bot.x - 5, clampedY + boxHeight);
+             ctx.lineTo(bot.x, clampedY + boxHeight + 5);
+             ctx.lineTo(bot.x + 5, clampedY + boxHeight);
+             ctx.fill();
+           }
+
+           // Text
+           ctx.fillStyle = '#f1f5f9';
+           ctx.textAlign = 'center';
+           ctx.textBaseline = 'middle';
+           ctx.fillText(text, clampedX + boxWidth / 2, clampedY + boxHeight / 2);
+           
+           ctx.restore();
+        }
+      }
+      
+      animationId = requestAnimationFrame(draw);
     };
 
-    requestAnimationFrame(draw);
-  }, [bots, projectiles, explosions, lasers, config, status]);
+    draw();
+
+    return () => {
+      cancelAnimationFrame(animationId);
+    };
+  }, []); // Run once on mount, rely on propsRef for updates
 
   return (
     <canvas 
@@ -233,6 +340,8 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, las
       width={config.width} 
       height={config.height}
       onClick={handleCanvasClick}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
       // Use CSS to force the canvas to fit the container, maintaining aspect ratio
       style={{ maxWidth: '100%', maxHeight: '100%', aspectRatio: `${config.width}/${config.height}` }}
       className={`rounded-lg border-2 border-slate-700 shadow-2xl bg-slate-950 ${status !== GameStatus.RUNNING ? 'cursor-pointer' : 'cursor-default'}`}

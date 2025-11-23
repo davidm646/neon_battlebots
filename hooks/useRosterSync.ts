@@ -1,4 +1,5 @@
 
+
 import { useEffect } from 'react';
 import { BotConfig, GameStatus, RobotState } from '../types';
 import { VM } from '../services/vm';
@@ -24,7 +25,7 @@ export const useRosterSync = (
           
           if (existing) {
             // Update VM but Keep Position
-            const vmBot = VM.createRobot(config.id, config.color, config.code, existing.x, existing.y);
+            const vmBot = VM.createRobot(config.id, config.name, config.color, config.code, existing.x, existing.y);
             
             // Sync registers for position/orientation
             vmBot.registers.set('ANGLE', existing.angle);
@@ -77,7 +78,7 @@ export const useRosterSync = (
           } else {
             // New Bot: Random Position (Safe Check)
             const { x, y } = getSafeSpawnPoint(nextBots, arenaWidth, arenaHeight);
-            const newBot = VM.createRobot(config.id, config.color, config.code, x, y);
+            const newBot = VM.createRobot(config.id, config.name, config.color, config.code, x, y);
             newBot.registers.set('TIME', 0);
             nextBots.push(newBot);
           }

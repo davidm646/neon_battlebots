@@ -79,6 +79,41 @@ export default function App() {
     }
   };
 
+  const handleDuplicateBot = (id: string) => {
+    const originalBot = roster.find(b => b.id === id);
+    if (!originalBot) return;
+
+    // Extract base name
+    // matches "Name" from "Name" or "Name (2)"
+    const nameMatch = originalBot.name.match(/^(.*?)(?: \(\d+\))?$/);
+    const baseName = nameMatch ? nameMatch[1] : originalBot.name;
+    
+    let maxIndex = 0;
+    const baseNameLower = baseName.toLowerCase();
+
+    roster.forEach(b => {
+      // check if this bot matches the pattern "BaseName" or "BaseName (N)"
+      const bNameMatch = b.name.match(/^(.*?)(?: \((\d+)\))?$/);
+      if (bNameMatch) {
+        const currentBase = bNameMatch[1];
+        if (currentBase.toLowerCase() === baseNameLower) {
+          // If matches pattern "BaseName (N)", use N. If just "BaseName", implicitly 1.
+          const index = bNameMatch[2] ? parseInt(bNameMatch[2]) : 1;
+          if (index > maxIndex) maxIndex = index;
+        }
+      }
+    });
+
+    const newName = `${baseName} (${maxIndex + 1})`;
+    
+    addBotToRoster({
+       id: crypto.randomUUID(),
+       name: newName,
+       code: originalBot.code,
+       color: getUniqueColor()
+    });
+  };
+
   // --- Game State Management ---
 
   // Full Reset: Randomizes positions (Used for Play & Reset Buttons)
@@ -88,7 +123,7 @@ export default function App() {
     roster.forEach((config) => {
       // Use Current Arena Size for safe spawn logic
       const { x, y } = getSafeSpawnPoint(startBots, arenaSize.width, arenaSize.height);
-      const bot = VM.createRobot(config.id, config.color, config.code, x, y);
+      const bot = VM.createRobot(config.id, config.name, config.color, config.code, x, y);
       // Ensure Time starts at 0
       bot.registers.set('TIME', 0);
       startBots.push(bot);
@@ -185,12 +220,6 @@ export default function App() {
     setArenaSize(ARENA_PRESETS[key]);
     // Auto-reset when changing map size to prevent bots being stuck out of bounds
     setStatus(GameStatus.READY);
-    // We use a timeout to allow state to update before scrambling
-    setTimeout(() => {
-       // Logic inside scrambleAndReset depends on arenaSize, so we just trigger a re-render effect ideally
-       // But here we can just manually invoke logic or let the user hit reset.
-       // For better UX, we force a scramble next render cycle.
-    }, 0);
   };
   
   // Re-scramble when arena size changes significantly if not running
@@ -198,7 +227,8 @@ export default function App() {
      if (status === GameStatus.STOPPED || status === GameStatus.READY || status === GameStatus.GAME_OVER) {
         scrambleAndReset();
      }
-  }, [arenaSize, scrambleAndReset]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arenaSize]);
 
 
   // --- Derived State ---
@@ -344,6 +374,7 @@ export default function App() {
             selectedBotId={selectedBotId}
             onAddBot={(name, code) => addBotToRoster(createNewBot(name, code))}
             onRemoveBot={removeBotFromRoster}
+            onDuplicateBot={handleDuplicateBot}
             onSelectBot={setSelectedBotId}
             onUpdateBotCode={updateBotCode}
             onPlay={handlePlay} 

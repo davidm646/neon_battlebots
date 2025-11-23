@@ -1,11 +1,12 @@
 
+
 import { RobotState, OpCode, Instruction } from '../types';
 import { AMMO_PROJECTILE, AMMO_LASER, AMMO_MISSILE, WEAPON_PROJECTILE, WEAPON_LASER, WEAPON_MISSILE, MISSILE_LOCK_DURATION } from '../constants';
 import { Compiler } from './compiler';
 import { audio } from './audio';
 
 export class VM {
-  static createRobot(id: string, color: string, code: string, x: number, y: number): RobotState {
+  static createRobot(id: string, name: string, color: string, code: string, x: number, y: number): RobotState {
     const { program, labels } = Compiler.parse(code);
     
     const regs = new Map<string, number>();
@@ -45,7 +46,7 @@ export class VM {
     });
 
     return {
-      id, color, x, y, 
+      id, name, color, x, y, 
       angle: startAngle, 
       desiredAngle: startAngle,
       speed: 0, 
