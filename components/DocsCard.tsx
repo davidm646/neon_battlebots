@@ -72,29 +72,10 @@ export const DocsCard: React.FC = () => {
             </section>
 
             <section>
-              <h3 className="text-cyan-400 font-bold mb-1">Heat System</h3>
+              <h3 className="text-cyan-400 font-bold mb-1">Aiming</h3>
               <p className="text-slate-400 mb-2">
-                Max heat is <span className="text-red-400">100</span>.
+                Set <code className="text-pink-400">AIM</code> to rotate the gun. Read <code className="text-orange-400">TURRET</code> to check where it currently is.
               </p>
-              <ul className="list-disc list-inside text-[10px] text-slate-400 space-y-1">
-                <li>Heat decays at 1 per frame.</li>
-                <li>If Heat >= 100, gun <span className="text-red-500 font-bold">JAMS</span>.</li>
-                <li>You cannot fire until Heat drops back to 0.</li>
-              </ul>
-            </section>
-
-            <section>
-              <h3 className="text-cyan-400 font-bold mb-1">Compare & Jump</h3>
-              <p className="text-slate-400 mb-2">
-                Conditional jumps depend on the last <code className="text-cyan-400">CMP</code> instruction.
-              </p>
-              <div className="bg-slate-950 p-2 rounded border-l-2 border-cyan-500">
-                <pre className="text-[10px] opacity-70">
-CMP radar 0    ; Sets internal flags
-JGT ATTACK     ; Jumps ONLY if radar > 0
-JEQ PATROL     ; Jumps ONLY if radar == 0
-                </pre>
-              </div>
             </section>
           </div>
         )}
@@ -121,7 +102,7 @@ JEQ PATROL     ; Jumps ONLY if radar == 0
                   { op: 'JGT', args: 'lbl', d: 'Jump if a > b' },
                   { op: 'JLT', args: 'lbl', d: 'Jump if a < b' },
                   { op: 'JEQ', args: 'lbl', d: 'Jump if a == b' },
-                  { op: 'SCAN', args: 'deg', d: 'Scan dist. LOCKS ON if target found.' },
+                  { op: 'SCAN', args: 'deg', d: 'Scan dist. LOCKS ON if found.' },
                 ].map((r, i) => (
                   <tr key={i} className="border-b border-slate-800/50">
                     <td className="py-1.5 text-cyan-400 font-bold">{r.op}</td>
@@ -139,7 +120,7 @@ JEQ PATROL     ; Jumps ONLY if radar == 0
               <div className="grid grid-cols-2 gap-1 text-[10px]">
                 <div className="bg-slate-900 px-2 py-1 rounded"><span className="text-pink-400">MOVE x</span> = SET SPEED x</div>
                 <div className="bg-slate-900 px-2 py-1 rounded"><span className="text-pink-400">TURN x</span> = SET ANGLE x</div>
-                <div className="bg-slate-900 px-2 py-1 rounded"><span className="text-pink-400">AIM x</span> = SET TURRET x</div>
+                <div className="bg-slate-900 px-2 py-1 rounded"><span className="text-pink-400">AIM x</span> = SET AIM x</div>
                 <div className="bg-slate-900 px-2 py-1 rounded"><span className="text-pink-400">FIRE 1</span> = SET SHOOT 1</div>
               </div>
             </div>
@@ -155,9 +136,8 @@ JEQ PATROL     ; Jumps ONLY if radar == 0
                   {[
                     { name: 'SPEED', r: '0-10', d: 'Engine power' },
                     { name: 'ANGLE', r: '0-360', d: 'Body Direction' },
-                    { name: 'TURRET', r: '0-360', d: 'Gun Direction' },
-                    { name: 'WEAPON', r: '1-3', d: '1=Slug, 2=Laser, 3=Msle' },
-                    { name: 'SHOOT', r: '0/1', d: '1 = Fire Active Weapon' },
+                    { name: 'AIM', r: '0-360', d: 'Gun Target' },
+                    { name: 'SHOOT', r: '0/1', d: '1 = Fire' },
                   ].map((reg, i) => (
                     <div key={i} className="flex items-center justify-between bg-slate-800 p-2 rounded text-[10px]">
                       <div>
@@ -174,13 +154,13 @@ JEQ PATROL     ; Jumps ONLY if radar == 0
                 <div className="text-[10px] font-bold text-slate-400 mb-2">SENSORS (Read Only)</div>
                 <div className="grid grid-cols-2 gap-2">
                   {[
+                    { name: 'TURRET', d: 'Actual Gun Angle' },
                     { name: 'RADAR', d: 'Last Scan Dist' },
-                    { name: 'AMMO', d: 'Ammo for active weapon' },
-                    { name: 'HEAT', d: 'Gun Heat 0-100' },
+                    { name: 'HEAT', d: 'Gun Heat' },
+                    { name: 'AMMO', d: 'Ammo Count' },
                     { name: 'X', d: 'Position X' },
                     { name: 'Y', d: 'Position Y' },
                     { name: 'HEALTH', d: 'Armor' },
-                    { name: 'TIME', d: 'Frame Count' },
                   ].map((reg, i) => (
                     <div key={i} className="bg-slate-800/50 p-2 rounded border border-slate-700/50 text-[10px]">
                       <span className="text-orange-400 font-bold block">{reg.name}</span>

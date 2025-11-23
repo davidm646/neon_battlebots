@@ -12,6 +12,9 @@ import {
   MISSILE_SPEED, MISSILE_TURN_RATE, MISSILE_DAMAGE, MISSILE_HEAT, MISSILE_LIFE, MISSILE_RELOAD_TIME
 } from '../constants';
 
+// Tolerance to make shooting feel more "fair" given scan imprecision
+const HIT_TOLERANCE = 5;
+
 export class PhysicsEngine {
   static update(
     bots: RobotState[], 
@@ -166,7 +169,9 @@ export class PhysicsEngine {
                    const fY = barrelTipY - other.y;
                    const a = dirX * dirX + dirY * dirY;
                    const b = 2 * (fX * dirX + fY * dirY);
-                   const c = (fX * fX + fY * fY) - (ROBOT_RADIUS * ROBOT_RADIUS);
+                   // Use a slightly larger radius for laser hits to be generous/magnetic
+                   const effectiveRadius = ROBOT_RADIUS + HIT_TOLERANCE;
+                   const c = (fX * fX + fY * fY) - (effectiveRadius * effectiveRadius);
                    let discriminant = b*b - 4*a*c;
                    
                    if(discriminant >= 0) {
@@ -364,7 +369,8 @@ export class PhysicsEngine {
         const dy = p.y - bot.y;
         const dist = Math.sqrt(dx*dx + dy*dy);
         
-        if (dist < ROBOT_RADIUS + PROJECTILE_RADIUS + (isMissile ? 5 : 0)) {
+        // Check hit with tolerance
+        if (dist < ROBOT_RADIUS + PROJECTILE_RADIUS + (isMissile ? 5 : 0) + HIT_TOLERANCE) {
           p.active = false;
           bot.health -= p.damage;
           audio.playHit();

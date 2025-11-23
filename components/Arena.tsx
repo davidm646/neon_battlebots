@@ -223,7 +223,7 @@ export const Arena: React.FC<ArenaProps> = ({ bots, projectiles, explosions, las
         ctx.fillStyle = bot.overheated ? '#ef4444' : '#f59e0b'; ctx.fillRect(-20, -40, 40 * (bot.heat / 100), 3);
 
         if (bot.overheated) {
-           ctx.font = 'bold 10px monospace'; ctx.fillStyle = '#ef4444'; ctx.textAlign = 'center'; ctx.fillText('JAMMED!', 0, -50);
+           ctx.font = 'bold 10px monospace'; ctx.fillStyle = '#ef4444'; ctx.textAlign = 'center'; ctx.fillText('OVERHEAT!', 0, -50);
         }
 
         // Chassis

@@ -65,6 +65,7 @@ export interface RobotState {
   program: Instruction[];
   labels: Map<string, number>;
   cmpFlag: number; // -1 less, 0 equal, 1 greater
+  compileError?: string | null; // Error message if compilation failed
   
   // Cooldowns & Events
   scanCooldown: number;

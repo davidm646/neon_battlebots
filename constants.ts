@@ -15,7 +15,7 @@ export const PROJECTILE_SPEED = 12;
 export const PROJECTILE_RADIUS = 4;
 export const MAX_HEALTH = 100;
 export const DAMAGE_PER_SHOT = 10;
-export const SCAN_RANGE = 2000; // Increased for larger maps
+export const SCAN_RANGE = 5000; // Increased to cover Huge arena diagonal
 
 // Weapon System
 export const WEAPON_PROJECTILE = 1;
@@ -85,17 +85,17 @@ JMP label     : Jump always
 JGT label     : Jump if a > b
 JLT label     : Jump if a < b
 JEQ label     : Jump if a == b
-SCAN angle    : Puts distance in RADAR (0 if none)
+SCAN angle    : Puts distance in RADAR (-1 if none)
 
 System Registers (Controls):
-SPEED (0-10), ANGLE (0-360), TURRET (0-360)
+SPEED (0-10), ANGLE (0-360), AIM (0-360)
 WEAPON (1=Slug, 2=Laser, 3=Missile), SHOOT (1=Fire)
 
 System Registers (Sensors):
-RADAR, HEAT, AMMO, X, Y, HEALTH, TIME
+RADAR, TURRET, HEAT, AMMO, X, Y, HEALTH, TIME
 
 Aliases:
-AIM x  -> SET TURRET x
+AIM x  -> SET AIM x
 MOVE x -> SET SPEED x
 TURN x -> SET ANGLE x
 FIRE 1 -> SET SHOOT 1 (Fires active WEAPON)

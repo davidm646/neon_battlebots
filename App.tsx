@@ -84,7 +84,6 @@ export default function App() {
     if (!originalBot) return;
 
     // Extract base name
-    // matches "Name" from "Name" or "Name (2)"
     const nameMatch = originalBot.name.match(/^(.*?)(?: \(\d+\))?$/);
     const baseName = nameMatch ? nameMatch[1] : originalBot.name;
     
@@ -92,12 +91,10 @@ export default function App() {
     const baseNameLower = baseName.toLowerCase();
 
     roster.forEach(b => {
-      // check if this bot matches the pattern "BaseName" or "BaseName (N)"
       const bNameMatch = b.name.match(/^(.*?)(?: \((\d+)\))?$/);
       if (bNameMatch) {
         const currentBase = bNameMatch[1];
         if (currentBase.toLowerCase() === baseNameLower) {
-          // If matches pattern "BaseName (N)", use N. If just "BaseName", implicitly 1.
           const index = bNameMatch[2] ? parseInt(bNameMatch[2]) : 1;
           if (index > maxIndex) maxIndex = index;
         }
@@ -137,7 +134,7 @@ export default function App() {
     projectilesRef.current = [];
     explosionsRef.current = [];
     lasersRef.current = [];
-  }, [roster, arenaSize]); // Dependency on arenaSize ensures we re-scramble if size changes
+  }, [roster, arenaSize]); 
 
 
   // --- Physics Loop ---
@@ -149,7 +146,7 @@ export default function App() {
       explosionsRef.current,
       lasersRef.current,
       cycles,
-      arenaSize.width, // Pass dynamic dimensions
+      arenaSize.width, 
       arenaSize.height
     );
 
@@ -183,7 +180,6 @@ export default function App() {
     if (status === GameStatus.RUNNING) {
       requestRef.current = requestAnimationFrame(gameLoop);
     } else {
-      // Stop engine sound if not running
       audio.stopEngine();
       if (requestRef.current) {
         cancelAnimationFrame(requestRef.current);
@@ -197,20 +193,18 @@ export default function App() {
   // --- Handlers ---
 
   const handlePlay = () => {
-    audio.initialize(); // Initialize audio context on user gesture
+    audio.initialize();
     
-    if (status === GameStatus.READY) {
-      // From READY: Just start with current positions
+    if (status === GameStatus.READY || status === GameStatus.PAUSED) {
       setStatus(GameStatus.RUNNING);
     } else if (status === GameStatus.GAME_OVER || status === GameStatus.STOPPED) {
-      // From STOPPED/GAME_OVER: Full scramble (Quick Play)
       scrambleAndReset();
       setStatus(GameStatus.RUNNING);
     }
   };
 
   const handleReset = () => {
-    audio.initialize(); // Initialize audio context on user gesture
+    audio.initialize();
     setStatus(GameStatus.READY);
     scrambleAndReset();
   };
@@ -218,11 +212,9 @@ export default function App() {
   const handleArenaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const key = e.target.value as keyof typeof ARENA_PRESETS;
     setArenaSize(ARENA_PRESETS[key]);
-    // Auto-reset when changing map size to prevent bots being stuck out of bounds
     setStatus(GameStatus.READY);
   };
   
-  // Re-scramble when arena size changes significantly if not running
   useEffect(() => {
      if (status === GameStatus.STOPPED || status === GameStatus.READY || status === GameStatus.GAME_OVER) {
         scrambleAndReset();
@@ -294,6 +286,7 @@ export default function App() {
                 onChange={(code) => selectedBotId && updateBotCode(selectedBotId, code)} 
                 botName={selectedBotConfig ? selectedBotConfig.name : 'NO BOT SELECTED'}
                 readOnly={!selectedBotId}
+                error={selectedBotRuntime?.compileError}
               />
            </div>
            

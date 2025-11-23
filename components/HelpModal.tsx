@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 
 interface HelpModalProps {
@@ -63,6 +64,20 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
               </section>
 
               <section>
+                <h3 className="text-lg text-white font-bold mb-2">Aiming vs Firing</h3>
+                <div className="bg-slate-800 p-3 rounded border border-slate-700">
+                  <p className="mb-2 text-xs">
+                    The turret is <strong>not instantaneous</strong>. It rotates at a fixed speed.
+                  </p>
+                  <ul className="list-disc list-inside text-xs text-slate-400">
+                    <li>Use <code className="text-pink-400">AIM x</code> (or <code className="text-cyan-400">SET AIM x</code>) to set the <strong>Target Angle</strong>.</li>
+                    <li>Read <code className="text-orange-400">TURRET</code> to get the <strong>Actual Angle</strong>.</li>
+                    <li>Compare them before firing to ensure you hit your target!</li>
+                  </ul>
+                </div>
+              </section>
+
+              <section>
                 <h3 className="text-lg text-white font-bold mb-2">Variables vs Registers</h3>
                 <p className="mb-2">
                   There are two types of storage:
@@ -76,32 +91,6 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                     <div className="text-purple-400 font-bold mb-1">Variables</div>
                     <p className="text-xs">Any other word (e.g., <code className="bg-slate-900 px-1 text-purple-300">A</code>, <code className="bg-slate-900 px-1 text-purple-300">myVar</code>, <code className="bg-slate-900 px-1 text-purple-300">target</code>) is automatically created as a variable initialized to 0.</p>
                   </div>
-                </div>
-              </section>
-
-              <section>
-                <h3 className="text-lg text-white font-bold mb-2">Firing Mechanics</h3>
-                <p>
-                  The <code className="text-pink-400">SHOOT</code> register (or <code className="text-cyan-400">FIRE 1</code>) resets to 0 every frame.
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                   <div className="bg-slate-800/50 p-3 rounded">
-                     <div className="text-green-400 font-bold text-xs mb-1">CONTINUOUS FIRE</div>
-                     <pre className="text-xs opacity-70">
-LOOP:
-  FIRE 1   ; Sets trigger this frame
-  JMP LOOP ; Repeats, firing again
-                     </pre>
-                   </div>
-                   <div className="bg-slate-800/50 p-3 rounded">
-                     <div className="text-yellow-400 font-bold text-xs mb-1">FIRE ONCE</div>
-                     <pre className="text-xs opacity-70">
-FIRE 1     ; Fires once
-WAIT:
-  NOOP     ; Does nothing
-  JMP WAIT ; Stuck here, no fire
-                     </pre>
-                   </div>
                 </div>
               </section>
             </div>
@@ -132,7 +121,7 @@ WAIT:
                       { op: 'JLT', args: 'label', desc: 'Jump if last CMP was Less Than.' },
                       { op: 'JGT', args: 'label', desc: 'Jump if last CMP was Greater Than.' },
                       { op: 'JEQ', args: 'label', desc: 'Jump if last CMP was Equal.' },
-                      { op: 'SCAN', args: 'angle', desc: 'Scans at angle. Puts distance in RADAR.' },
+                      { op: 'SCAN', args: 'angle', desc: 'Scans at angle. Puts distance in RADAR. (-1 if none)' },
                       { op: 'NOOP', args: '-', desc: 'No Operation. Waits 1 cycle.' },
                     ].map((row, i) => (
                       <tr key={i} className="border-b border-slate-800/50 hover:bg-slate-800/30">
@@ -160,7 +149,7 @@ WAIT:
                     </tr>
                     <tr className="border-b border-slate-800/50">
                       <td className="py-2 font-bold text-pink-400">AIM x</td>
-                      <td className="py-2 text-slate-400">Same as <code className="text-cyan-400">SET TURRET x</code> (Turret angle)</td>
+                      <td className="py-2 text-slate-400">Same as <code className="text-cyan-400">SET AIM x</code> (Target Gun Angle)</td>
                     </tr>
                     <tr className="border-b border-slate-800/50">
                       <td className="py-2 font-bold text-pink-400">FIRE 1</td>
@@ -181,7 +170,7 @@ WAIT:
                     {[
                       { name: 'SPEED', range: '0-10', desc: 'Controls movement speed.' },
                       { name: 'ANGLE', range: '0-360', desc: 'Direction of movement/body.' },
-                      { name: 'TURRET', range: '0-360', desc: 'Direction of firing/scanning.' },
+                      { name: 'AIM', range: '0-360', desc: 'Target angle for the Turret.' },
                       { name: 'SHOOT', range: '0 or 1', desc: 'Set to 1 to fire. Auto-resets to 0 next frame.' },
                     ].map((reg, i) => (
                       <div key={i} className="flex items-center justify-between bg-slate-800 p-3 rounded">
@@ -199,11 +188,12 @@ WAIT:
                   <h3 className="text-lg text-white font-bold mb-4">Sensors (Read Only)</h3>
                   <div className="grid gap-3">
                     {[
-                      { name: 'RADAR', desc: 'Distance to nearest object found by SCAN command. 0 if nothing found.' },
+                      { name: 'TURRET', desc: 'Actual physical angle of the gun.' },
+                      { name: 'RADAR', desc: 'Distance to nearest object found by SCAN.' },
                       { name: 'X', desc: 'Current X coordinate of bot (0-800).' },
                       { name: 'Y', desc: 'Current Y coordinate of bot (0-600).' },
                       { name: 'HEALTH', desc: 'Current health (0-100).' },
-                      { name: 'TIME', desc: 'Current game frame count.' },
+                      { name: 'HEAT', desc: 'Current weapon heat (0-100).' },
                     ].map((reg, i) => (
                       <div key={i} className="flex items-center justify-between bg-slate-800/50 border border-slate-700 p-3 rounded">
                         <span className="text-orange-400 font-bold">{reg.name}</span>

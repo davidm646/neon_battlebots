@@ -54,7 +54,7 @@ export class Compiler {
         case 'SCAN': op = OpCode.SCAN; break;
         case 'MOVE': // Alias for SET SPEED
         case 'TURN': // Alias for SET ANGLE
-        case 'AIM':  // Alias for SET TURRET
+        case 'AIM':  // Alias for SET TURRET -> Now SET AIM
         case 'FIRE': // Alias for SET SHOOT
           // We handle these aliases by converting them to SET instructions or special handling in VM
           // For simplicity in this Compiler, we treat them as SET if they set a register, 
@@ -71,7 +71,8 @@ export class Compiler {
              continue;
           }
           if (opRaw === 'AIM') {
-             program.push({ op: OpCode.SET, args: ['TURRET', args[0]], originalLine: lineNum });
+             // Changed: AIM now maps to SET AIM (Control Register), not SET TURRET (Sensor)
+             program.push({ op: OpCode.SET, args: ['AIM', args[0]], originalLine: lineNum });
              continue;
           }
           if (opRaw === 'FIRE') {
